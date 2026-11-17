@@ -65,5 +65,26 @@ public class ProfileController {
             @Valid @RequestBody UserProfileUpdateRequestDTO request) {
         return updateProfile(userDetails, request);
     }
+
+    @PutMapping("/internal/users/{id}/status")
+    @Operation(summary = "Update User Status", description = "Internal endpoint to enable or suspend an account")
+    public ResponseEntity<Void> updateUserStatus(
+            @PathVariable Long id,
+            @RequestParam boolean enabled) {
+        profileService.updateUserStatus(id, enabled);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/internal/merchants")
+    @Operation(summary = "Get All Merchants", description = "Internal endpoint to retrieve all registered merchants")
+    public ResponseEntity<java.util.List<UserProfileResponseDTO>> getAllMerchants() {
+        return ResponseEntity.ok(profileService.getAllMerchants());
+    }
+
+    @GetMapping("/internal/metrics/counts")
+    @Operation(summary = "Get User Counts", description = "Internal endpoint to retrieve total customer and merchant counts")
+    public ResponseEntity<com.eshopping.profile.dto.UserCountsDTO> getUserCounts() {
+        return ResponseEntity.ok(profileService.getUserCounts());
+    }
 }
 

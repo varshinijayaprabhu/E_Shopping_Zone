@@ -32,6 +32,9 @@ import { MerchantProductsPage } from './pages/merchant/MerchantProductsPage';
 import { MerchantProductFormPage } from './pages/merchant/MerchantProductFormPage';
 import { MerchantOrdersPage } from './pages/merchant/MerchantOrdersPage';
 
+// Admin Pages
+import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
+
 const App: React.FC = () => {
   return (
     <NotificationProvider>
@@ -166,6 +169,19 @@ const App: React.FC = () => {
                         </ProtectedRoute>
                       }
                     />
+
+                    {/* Admin Protected Routes */}
+                    <Route
+                      path="/admin"
+                      element={
+                        <ProtectedRoute>
+                          <RoleRoute requiredRole="ROLE_ADMIN">
+                            <AdminDashboardPage />
+                          </RoleRoute>
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route path="/admin/dashboard" element={<Navigate to="/admin" replace />} />
 
                     {/* 404 Catch All */}
                     <Route path="*" element={<NotFoundPage />} />

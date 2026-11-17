@@ -1,0 +1,99 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: admin-service
+  cloud:
+    loadbalancer:
+      cache:
+        ttl: 3s
+
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/admin_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
+    username: ${MYSQL_USER:${DB_USER:root}}
+    password: ${MYSQL_PASSWORD:${DB_PASSWORD:}}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 300000
+      connection-timeout: 20000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: false
+    show-sql: false
+    open-in-view: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+    registry-fetch-interval-seconds: 5
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}:${random.value}
+
+dispute:
+  sla:
+    minutes: 2
+
+internal:
+  service:
+    secret: ${INTERNAL_SERVICE_SECRET:ESHOPPING_INTERNAL_SECRET_2026}
+
+eshopping:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+  internal:
+    secret-key: ${INTERNAL_SERVICE_SECRET:ESHOPPING_INTERNAL_SECRET_2026}
+  services:
+    profile-service:
+      url: ${PROFILE_SERVICE_URL:http://profile-service}
+    order-service:
+      url: ${ORDER_SERVICE_URL:http://order-service}
+
+services:
+  profile:
+    url: ${PROFILE_SERVICE_URL:http://profile-service}
+  order:
+    url: ${ORDER_SERVICE_URL:http://order-service}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  file:
+    name: logs/admin-service.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 7
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  level:
+    root: INFO
+    com.eshopping.admin: DEBUG

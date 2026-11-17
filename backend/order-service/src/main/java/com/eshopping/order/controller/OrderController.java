@@ -5,6 +5,7 @@ import com.eshopping.order.dto.CancelOrderRequestDTO;
 import com.eshopping.order.dto.CheckoutRequestDTO;
 import com.eshopping.order.dto.MerchantOrderItemDTO;
 import com.eshopping.order.dto.OrderDTO;
+import com.eshopping.order.dto.OrderMetricsSummaryDTO;
 import com.eshopping.order.exception.AccessDeniedException;
 import com.eshopping.order.security.CustomUserDetails;
 import com.eshopping.order.service.OrderService;
@@ -139,6 +140,28 @@ public class OrderController {
         validateInternalAccess(httpRequest);
         int reconciledCount = orderService.reconcilePendingSagas();
         return ResponseEntity.ok(ApiResponse.success("Reconciliation executed", reconciledCount));
+    }
+
+    @GetMapping("/internal/metrics/summary")
+    @Operation(summary = "Internal: Order metrics summary", description = "Returns total order count and total platform revenue")
+    public ResponseEntity<ApiResponse<OrderMetricsSummaryDTO>> getMetricsSummary() {
+        return ResponseEntity.ok(ApiResponse.success("Order metrics summary retrieved", orderService.getMetricsSummary()));
+    }
+
+    @PutMapping("/internal/{id}/status")
+    @Operation(summary = "Internal: Update order status", description = "Updates status of an order")
+    public ResponseEntity<ApiResponse<OrderDTO>> updateOrderStatus(
+            @PathVariable Long id,
+            @RequestParam String status) {
+        return ResponseEntity.ok(ApiResponse.success("Order status updated", orderService.updateOrderStatus(id, status)));
+    }
+
+    @PostMapping("/internal/{id}/dispute-refund")
+    @Operation(summary = "Internal: Process administrative dispute refund", description = "Triggers refund compensation to customer wallet and marks status as REFUNDED_BY_ADMIN")
+    public ResponseEntity<ApiResponse<OrderDTO>> adminDisputeRefund(
+            @PathVariable Long id,
+            @RequestParam(required = false) String reason) {
+        return ResponseEntity.ok(ApiResponse.success("Dispute refund processed successfully", orderService.adminDisputeRefund(id, reason)));
     }
 
     private void validateInternalAccess(HttpServletRequest request) {

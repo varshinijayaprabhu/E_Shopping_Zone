@@ -80,6 +80,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                             "/api/auth/login",
                             "/api/auth/refresh",
                             "/api/auth/oauth2/exchange",
+                            "/api/profile/internal/**",
                             "/error"
                     ).permitAll()
                     // OpenAPI & Swagger Documentation

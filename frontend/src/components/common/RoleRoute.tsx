@@ -5,11 +5,11 @@ import { LoadingSpinner } from './LoadingSpinner';
 
 interface RoleRouteProps {
   children: React.ReactElement;
-  requiredRole: 'ROLE_CUSTOMER' | 'ROLE_MERCHANT';
+  requiredRole: 'ROLE_CUSTOMER' | 'ROLE_MERCHANT' | 'ROLE_ADMIN';
 }
 
 export const RoleRoute: React.FC<RoleRouteProps> = ({ children, requiredRole }) => {
-  const { user, isAuthenticated, isLoading, isMerchant, isCustomer } = useAuth();
+  const { user, isAuthenticated, isLoading, isAdmin, isMerchant, isCustomer } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -25,6 +25,7 @@ export const RoleRoute: React.FC<RoleRouteProps> = ({ children, requiredRole }) 
   }
 
   const hasRole =
+    (requiredRole === 'ROLE_ADMIN' && isAdmin) ||
     (requiredRole === 'ROLE_MERCHANT' && isMerchant) ||
     (requiredRole === 'ROLE_CUSTOMER' && isCustomer) ||
     user?.roles?.includes(requiredRole);

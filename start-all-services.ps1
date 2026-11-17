@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # E-ShoppingZone Microservices Platform — Master Startup Script
 # Capgemini Case Study Architecture (Local Windows Environment)
 # ==============================================================================
@@ -74,7 +74,8 @@ $services = @(
     @{ Name = "Product Service";  Port = 8082; Jar = "backend\product-service\target\product-service-1.0.0.jar";   HealthUri = "http://localhost:8082/actuator/health"; Swagger = "http://localhost:8082/swagger-ui/index.html" },
     @{ Name = "Cart Service";     Port = 8083; Jar = "backend\cart-service\target\cart-service-1.0.0.jar";         HealthUri = "http://localhost:8083/actuator/health"; Swagger = "http://localhost:8083/swagger-ui/index.html" },
     @{ Name = "Wallet Service";   Port = 8085; Jar = "backend\wallet-service\target\wallet-service-1.0.0.jar";     HealthUri = "http://localhost:8085/actuator/health"; Swagger = "http://localhost:8085/swagger-ui/index.html" },
-    @{ Name = "Order Service";    Port = 8084; Jar = "backend\order-service\target\order-service-1.0.0.jar";       HealthUri = "http://localhost:8084/actuator/health"; Swagger = "http://localhost:8084/swagger-ui/index.html" }
+    @{ Name = "Order Service";    Port = 8084; Jar = "backend\order-service\target\order-service-1.0.0.jar";       HealthUri = "http://localhost:8084/actuator/health"; Swagger = "http://localhost:8084/swagger-ui/index.html" },
+    @{ Name = "Admin Service";    Port = 8086; Jar = "backend\admin-service\target\admin-service-1.0.0.jar";       HealthUri = "http://localhost:8086/actuator/health"; Swagger = "http://localhost:8086/swagger-ui/index.html" }
 )
 
 # Load existing PID records
@@ -199,8 +200,9 @@ foreach ($svc in $services | Where-Object { $_.Port -ne 8761 -and $_.Port -ne 80
 }
 
 Write-Host "`nPre-seeded Demonstration Credentials:" -ForegroundColor Yellow
-Write-Host "  * Customer:  customer@eshopping.com   / Pass1234! (Wallet Balance: ₹15,000.00)" -ForegroundColor White
-Write-Host "  * Merchant:  merchant@eshopping.com   / Pass1234! (Catalog: 12 Products)" -ForegroundColor White
+Write-Host "  * Administrator: admin@eshopping.com  / Password@123 (Governance & Dispute Resolution)" -ForegroundColor White
+Write-Host "  * Customer:      customer@eshopping.com / Pass1234! (Wallet Balance: ₹15,000.00)" -ForegroundColor White
+Write-Host "  * Merchant:      merchant@eshopping.com / Pass1234! (Catalog: 12 Products)" -ForegroundColor White
 $activeInvite = if ($env:MERCHANT_INVITE_CODE) { $env:MERCHANT_INVITE_CODE } else { "ESHOPPING_MERCHANT_INVITE_2026" }
 Write-Host "  * Merchant Invite Secret: $activeInvite" -ForegroundColor DarkGray
 Write-Host "`nTo gracefully shut down all services, execute: .\stop-all-services.ps1`n" -ForegroundColor Cyan

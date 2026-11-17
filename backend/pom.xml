@@ -27,6 +27,7 @@
         <module>cart-service</module>
         <module>wallet-service</module>
         <module>order-service</module>
+        <module>admin-service</module>
     </modules>
 
     <properties>

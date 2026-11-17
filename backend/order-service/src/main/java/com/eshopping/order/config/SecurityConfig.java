@@ -55,7 +55,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                     // Internal & public status endpoints
                     .antMatchers(
                             "/api/orders/reconcile",
-                            "/api/orders/status/**"
+                            "/api/orders/status/**",
+                            "/api/orders/internal/**"
                     ).permitAll()
 
                     // All other Order APIs require authentication

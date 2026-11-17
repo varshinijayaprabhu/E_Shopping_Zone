@@ -331,6 +331,20 @@ PRODUCT-SERVICE     WALLET-SERVICE       CART-SERVICE
 > **Answer**: *"CSRF (Cross-Site Request Forgery) attacks exploit stateful browser session cookies (`JSESSIONID`) that browsers automatically attach to cross-origin requests. Our microservices architecture is completely stateless (`SessionCreationPolicy.STATELESS`) and uses JWT authentication passed in custom `Authorization: Bearer <token>` headers. Because browsers never automatically attach custom authorization headers to cross-site requests, CSRF attacks are fundamentally impossible on stateless JWT APIs. SonarQube flags `.csrf().disable()` as a 'Security Hotspot' for human verification; in SonarQube, this is reviewed and marked as 'Reviewed as Safe' because the API is stateless."*
 
 ### Q12: How do you ensure code quality, test coverage, and security compliance across your microservices?
-> **Answer**: *"We integrated SonarQube static code analysis and JaCoCo code coverage into our Maven multi-module build pipeline. Across all 7 microservices, 120 JUnit 5 and Mockito tests run during the build, and JaCoCo measures test coverage. SonarQube enforces Quality Gates covering bugs, maintainability ratings (Grade A), technical debt, code smells, and security hotspots (such as secrets detection and CSRF validation), ensuring enterprise-grade software standards."*
+> **Answer**: *"We integrated SonarQube static code analysis and JaCoCo code coverage into our Maven multi-module build pipeline. Across all 8 microservices, 142 JUnit 5 and Mockito tests run during the build, and JaCoCo measures test coverage. SonarQube enforces Quality Gates covering bugs, maintainability ratings (Grade A), technical debt, code smells, and security hotspots (such as secrets detection and CSRF validation), ensuring enterprise-grade software standards."*
+
+### Q13: What is the architectural purpose of `admin-service` and how does it maintain database-per-service isolation?
+> **Answer**: *"The `admin-service` (Port 8086) is a dedicated microservice backed by its own physical database (`admin_db`) owning three core platform governance responsibilities:
+> 1. **Merchant Verification & Account Freezes**: Admin approves new merchant registrations or freezes/suspends fraudulent merchants with mandatory audit trail logging (`admin_audit_logs`).
+> 2. **Dispute SLA Escalation & Administrative Refund**: Manages post-purchase buyer-merchant dispute tickets with an automated 2-minute SLA countdown timer.
+> 3. **Platform Summary Dashboard ('Big Numbers')**: Aggregates real-time KPIs (total orders, gross platform revenue, active customers, registered merchants, and dispute queues).
+> Crucially, `admin-service` adheres strictly to database-per-service principles: it **never** connects directly to `order_db` or `profile_db` via SQL. Instead, all cross-service coordination happens through secure, authenticated internal REST APIs (`/internal/**`) with shared service secrets."*
+
+### Q14: How does the Time-Based Dispute Escalation Engine and Administrative Saga Refund work?
+> **Answer**: *"When a customer raises a dispute ticket for an order, `admin-service` records the claim in `dispute_tickets` with status `PENDING_MERCHANT` and computes a deadline (`LocalDateTime.now().plusMinutes(2)`).
+> - If the merchant **accepts** the dispute, a compensating refund is automatically triggered.
+> - If the merchant **rejects** or if the 2-minute SLA expires without a merchant response, a Spring `@Scheduled` background worker (`DisputeSlaScheduler`, polling every 15 seconds) automatically transitions the status to `ESCALATED_TO_ADMIN`.
+> - The administrator reviews the ticket in the Admin Portal and can execute an administrative refund override. This invokes `order-service`'s Saga compensation endpoint (`/api/orders/internal/{id}/dispute-refund`), which refunds the customer's digital wallet via `wallet-service`, restores catalog inventory via `product-service`, updates order status to `REFUNDED_BY_ADMIN`, and logs an immutable audit entry in `admin_audit_logs`."*
+
 
 

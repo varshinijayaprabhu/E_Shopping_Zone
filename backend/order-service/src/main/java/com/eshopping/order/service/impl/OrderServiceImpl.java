@@ -19,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -283,6 +284,99 @@ public class OrderServiceImpl implements OrderService {
                 o.getShippingPhone(),
                 o.getShippingAddress()
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrderMetricsSummaryDTO getMetricsSummary() {
+        long totalOrders = orderRepository.count();
+        BigDecimal totalRevenue = orderRepository.calculateTotalRevenue();
+        if (totalRevenue == null) {
+            totalRevenue = BigDecimal.ZERO;
+        }
+        return new OrderMetricsSummaryDTO(totalOrders, totalRevenue);
+    }
+
+    @Override
+    @Transactional
+    public OrderDTO updateOrderStatus(Long orderId, String status) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderId));
+        order.setOrderStatus(OrderStatus.valueOf(status.toUpperCase()));
+        Order savedOrder = orderRepository.save(order);
+        log.info("Order {} status updated to {}", order.getOrderNumber(), status);
+        return mapToOrderDTO(savedOrder);
+    }
+
+    @Override
+    @Transactional
+    public OrderDTO adminDisputeRefund(Long orderId, String reason) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderId));
+
+        if (order.getOrderStatus() == OrderStatus.REFUNDED_BY_ADMIN || order.getOrderStatus() == OrderStatus.CANCELLED) {
+            throw new BadRequestException("Order is already refunded or cancelled");
+        }
+
+        String refundReason = (reason != null && !reason.trim().isEmpty())
+                ? reason
+                : "Dispute refund issued by Platform Administrator";
+
+        if (order.getPaymentMethod() == PaymentMethod.WALLET) {
+            String refIdempotencyKey = "ADM-REF-IDEM-" + UUID.randomUUID().toString();
+            String originalTxnRef = null;
+            if (!order.getPaymentRecords().isEmpty()) {
+                originalTxnRef = order.getPaymentRecords().iterator().next().getPaymentReference();
+            }
+
+            WalletRefundClientRequestDTO refundRequest = new WalletRefundClientRequestDTO(
+                    order.getCustomerId(),
+                    order.getOrderNumber(),
+                    order.getTotalAmount(),
+                    refIdempotencyKey,
+                    refundReason,
+                    originalTxnRef
+            );
+
+            try {
+                walletServiceClient.refund(refundRequest);
+                order.setPaymentStatus(PaymentStatus.REFUNDED);
+
+                PaymentRecord refundRecord = new PaymentRecord(
+                        order,
+                        "ADM-REF-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(),
+                        PaymentMethod.WALLET,
+                        order.getTotalAmount(),
+                        "REFUNDED",
+                        "Admin dispute refund: " + refundReason
+                );
+                order.addPaymentRecord(refundRecord);
+                log.info("Dispute refund issued to customer {} for order {}", order.getCustomerId(), order.getOrderNumber());
+            } catch (Exception ex) {
+                log.error("Failed to execute wallet refund for dispute on order {}: {}", order.getOrderNumber(), ex.getMessage());
+                throw new BadRequestException("Wallet refund failed: " + ex.getMessage());
+            }
+        }
+
+        try {
+            List<InventoryReleaseClientRequestDTO.ItemRelease> releases = new ArrayList<>();
+            for (OrderItem item : order.getOrderItems()) {
+                releases.add(new InventoryReleaseClientRequestDTO.ItemRelease(item.getProductId(), item.getQuantity()));
+            }
+            InventoryReleaseClientRequestDTO releaseRequest = new InventoryReleaseClientRequestDTO(order.getOrderNumber(), releases);
+            productServiceClient.releaseStock(releaseRequest);
+            log.info("Stock released for admin dispute refund on order {}", order.getOrderNumber());
+        } catch (Exception ex) {
+            log.warn("Failed to release stock during dispute refund on order {}: {}", order.getOrderNumber(), ex.getMessage());
+        }
+
+        order.setOrderStatus(OrderStatus.REFUNDED_BY_ADMIN);
+        order.setSagaState(SagaState.COMPENSATION_COMPLETED);
+        order.setSagaFailureReason(refundReason);
+        Order updatedOrder = orderRepository.save(order);
+
+        log.info("Order {} transitioned to REFUNDED_BY_ADMIN by administrator", order.getOrderNumber());
+        return mapToOrderDTO(updatedOrder);
     }
 }
 

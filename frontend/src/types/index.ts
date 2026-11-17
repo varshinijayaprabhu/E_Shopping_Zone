@@ -187,3 +187,59 @@ export interface ToastMessage {
   message: string;
 }
 
+export interface DashboardStats {
+  totalOrders: number;
+  totalRevenue: number;
+  totalUsers: number;
+  activeCustomers: number;
+  registeredMerchants: number;
+  pendingMerchants: number;
+  pendingDisputes: number;
+  escalatedDisputes: number;
+  resolvedDisputes: number;
+}
+
+export interface MerchantProfile {
+  id: number;
+  email: string;
+  fullName: string;
+  phoneNumber?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  roles: string[];
+  enabled: boolean;
+  createdAt: string;
+}
+
+export interface DisputeTicket {
+  id: number;
+  orderId: number;
+  customerId: number;
+  merchantId: number;
+  issueReason: string;
+  customerComment?: string;
+  merchantResponse?: string;
+  adminNotes?: string;
+  refundAmount: number;
+  status: 'PENDING_MERCHANT' | 'MERCHANT_ACCEPTED' | 'MERCHANT_REJECTED' | 'ESCALATED_TO_ADMIN' | 'REFUNDED_BY_ADMIN' | 'RESOLVED_NO_REFUND';
+  merchantDeadline?: string;
+  remainingSeconds?: number;
+  escalatedAt?: string;
+  resolvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminAuditLog {
+  id: number;
+  adminId: number;
+  actionType: string;
+  targetEntityType: string;
+  targetEntityId: number;
+  reason?: string;
+  metadata?: string;
+  ipAddress?: string;
+  createdAt: string;
+}
+

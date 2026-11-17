@@ -18,6 +18,7 @@ public class UserProfileResponseDTO {
     private String profilePictureUrl;
     private String authProvider;
     private Set<String> roles;
+    private boolean enabled;
     private LocalDateTime createdAt;
 
     public UserProfileResponseDTO() {
@@ -125,6 +126,14 @@ public class UserProfileResponseDTO {
 
     public void setRoles(Set<String> roles) {
         this.roles = roles;
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -9,6 +9,7 @@ import { RoleRoute } from '../components/common/RoleRoute';
 let mockAuthState = {
   user: null as any,
   isAuthenticated: false,
+  isAdmin: false,
   isMerchant: false,
   isCustomer: false,
   isLoading: false,
@@ -131,6 +132,63 @@ describe('Route Guards', () => {
       );
 
       expect(screen.getByText('Merchant Portal')).toBeInTheDocument();
+    });
+
+    it('shows Access Denied when non-admin accesses ROLE_ADMIN route', () => {
+      mockAuthState = {
+        user: { id: 1, email: 'alice@eshopping.com', roles: ['ROLE_CUSTOMER'] },
+        isAuthenticated: true,
+        isAdmin: false,
+        isMerchant: false,
+        isCustomer: true,
+        isLoading: false,
+      };
+
+      render(
+        <MemoryRouter initialEntries={['/admin-only']}>
+          <Routes>
+            <Route
+              path="/admin-only"
+              element={
+                <RoleRoute requiredRole="ROLE_ADMIN">
+                  <div>Admin Governance Portal</div>
+                </RoleRoute>
+              }
+            />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      expect(screen.queryByText('Admin Governance Portal')).not.toBeInTheDocument();
+      expect(screen.getByText('Access Denied')).toBeInTheDocument();
+    });
+
+    it('allows access to admin portal when user holds ROLE_ADMIN', () => {
+      mockAuthState = {
+        user: { id: 4, email: 'admin@eshopping.com', roles: ['ROLE_ADMIN'] },
+        isAuthenticated: true,
+        isAdmin: true,
+        isMerchant: false,
+        isCustomer: false,
+        isLoading: false,
+      };
+
+      render(
+        <MemoryRouter initialEntries={['/admin-only']}>
+          <Routes>
+            <Route
+              path="/admin-only"
+              element={
+                <RoleRoute requiredRole="ROLE_ADMIN">
+                  <div>Admin Governance Portal</div>
+                </RoleRoute>
+              }
+            />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      expect(screen.getByText('Admin Governance Portal')).toBeInTheDocument();
     });
   });
 });

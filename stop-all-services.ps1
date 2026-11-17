@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # E-ShoppingZone Microservices Platform — Master Shutdown Script
 # Capgemini Case Study Architecture (Local Windows Environment)
 # ==============================================================================
@@ -15,7 +15,7 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $scriptDir
 
 $pidFile = Join-Path $scriptDir ".running-processes.json"
-$ports = @(5173, 8084, 8085, 8083, 8082, 8081, 8080, 8761)
+$ports = @(5173, 8086, 8084, 8085, 8083, 8082, 8081, 8080, 8761)
 
 # 1. Stop tracked PIDs from file
 if (Test-Path $pidFile) {

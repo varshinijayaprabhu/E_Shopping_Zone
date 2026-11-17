@@ -20,6 +20,7 @@ All client communication (React SPA or Postman) enters the system via the **API 
 | **Cart Service** | `http://localhost:8080/api/cart/**` | `8083` | [http://localhost:8083/swagger-ui/index.html](http://localhost:8083/swagger-ui/index.html) |
 | **Order Service** | `http://localhost:8080/api/orders/**` | `8084` | [http://localhost:8084/swagger-ui/index.html](http://localhost:8084/swagger-ui/index.html) |
 | **Wallet Service** | `http://localhost:8080/api/wallet/**` | `8085` | [http://localhost:8085/swagger-ui/index.html](http://localhost:8085/swagger-ui/index.html) |
+| **Admin Service** | `http://localhost:8080/api/admin/**`, `/api/disputes/**` | `8086` | [http://localhost:8086/swagger-ui/index.html](http://localhost:8086/swagger-ui/index.html) |
 | **Eureka Registry** | `http://localhost:8761` | `8761` | [http://localhost:8761](http://localhost:8761) |
 
 ### 1.2 Authentication Headers & Protocols
@@ -594,4 +595,97 @@ All error responses adhere to the standard JSON structure:
     "message": "Saga reconciliation completed successfully"
   }
   ```
+
+---
+
+## 7. Admin Governance & Dispute Microservice (`:8086`)
+
+### 7.1 Platform Overview / Big Numbers
+- **Method / Path**: `GET /api/admin/metrics`
+- **Access**: Bearer JWT (`ROLE_ADMIN`)
+- **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "message": "Dashboard metrics retrieved successfully",
+    "data": {
+      "totalOrders": 150,
+      "totalRevenue": 450000.00,
+      "totalUsers": 500,
+      "activeCustomers": 480,
+      "registeredMerchants": 20,
+      "pendingMerchants": 2,
+      "pendingDisputes": 3,
+      "escalatedDisputes": 1,
+      "resolvedDisputes": 12
+    }
+  }
+  ```
+
+### 7.2 List All Merchants
+- **Method / Path**: `GET /api/admin/merchants`
+- **Access**: Bearer JWT (`ROLE_ADMIN`)
+- **Response `200 OK`**: List of all merchants with registration timestamp, approval status, and address.
+
+### 7.3 Approve or Suspend / Ban Merchant
+- **Method / Path**: `PUT /api/admin/merchants/{id}/status`
+- **Access**: Bearer JWT (`ROLE_ADMIN`)
+- **Request Body**:
+  ```json
+  {
+    "enabled": false,
+    "reason": "Suspicious transaction frequency and high dispute rate"
+  }
+  ```
+- **Response `200 OK`**: Updates status across services and writes an immutable audit log.
+
+### 7.4 Dispute Tickets Queue
+- **Method / Path**: `GET /api/admin/disputes`
+- **Access**: Bearer JWT (`ROLE_ADMIN`)
+- **Query Params**: `status` (e.g. `ESCALATED_TO_ADMIN`), `page`, `size`
+- **Response `200 OK`**: Paginated dispute tickets.
+
+### 7.5 Administrative Dispute Resolution & Refund Override
+- **Method / Path**: `POST /api/admin/disputes/{id}/resolve`
+- **Access**: Bearer JWT (`ROLE_ADMIN`)
+- **Request Body**:
+  ```json
+  {
+    "action": "REFUND",
+    "adminNotes": "Admin approved full refund based on buyer photo evidence"
+  }
+  ```
+- **Response `200 OK`**: Triggers compensating wallet refund via `order-service` Saga, releases inventory, transitions status to `REFUNDED_BY_ADMIN`, and persists audit log.
+
+### 7.6 Admin Audit Log History
+- **Method / Path**: `GET /api/admin/audit-logs`
+- **Access**: Bearer JWT (`ROLE_ADMIN`)
+- **Response `200 OK`**: Immutable chronological history of all administrative actions.
+
+### 7.7 Customer Raise Dispute Ticket
+- **Method / Path**: `POST /api/disputes/create`
+- **Access**: Bearer JWT (`ROLE_CUSTOMER`)
+- **Request Body**:
+  ```json
+  {
+    "orderId": 101,
+    "merchantId": 10,
+    "issueReason": "Damaged product received",
+    "customerComment": "Item box was opened and item scratched",
+    "refundAmount": 1299.00
+  }
+  ```
+- **Response `201 Created`**: Ticket initiated with status `PENDING_MERCHANT` and a 2-minute merchant SLA deadline.
+
+### 7.8 Merchant Dispute Response
+- **Method / Path**: `POST /api/disputes/{id}/merchant-response`
+- **Access**: Bearer JWT (`ROLE_MERCHANT`)
+- **Request Body**:
+  ```json
+  {
+    "action": "ACCEPT",
+    "responseComment": "Apologies for the damage, issuing immediate refund"
+  }
+  ```
+- **Response `200 OK`**: If `ACCEPT`, triggers automated refund; if `REJECT`, escalates directly to `ESCALATED_TO_ADMIN`.
 

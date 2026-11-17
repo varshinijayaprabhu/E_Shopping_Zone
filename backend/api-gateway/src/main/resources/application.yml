@@ -54,6 +54,16 @@ spring:
           uri: lb://WALLET-SERVICE
           predicates:
             - Path=/api/wallet/**
+
+        # Route: Admin Service (Platform Governance, Merchant Bans, Disputes)
+        - id: admin-service-admin
+          uri: lb://ADMIN-SERVICE
+          predicates:
+            - Path=/api/admin/**
+        - id: admin-service-disputes
+          uri: lb://ADMIN-SERVICE
+          predicates:
+            - Path=/api/disputes/**
       loadbalancer:
         cache:
           ttl: 3s

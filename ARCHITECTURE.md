@@ -16,7 +16,7 @@
 - **Backend Runtime**: Pure **Java 8 bytecode** (`major version: 52`), compiled with target/source `1.8`.
 - **Framework Stack**: **Spring Boot 2.7.18**, **Spring Cloud 2021.0.9 (Kilburn SR9)**, and **Hibernate 5.6.x**.
 - **Frontend Stack**: **React 18.3.1**, **TypeScript 5.x**, **Vite 5**, **Tailwind CSS 3.4**, and **Axios 1.7**.
-- **Databases**: **MySQL 8.4** across 5 isolated physical schemas (`profile_db`, `product_db`, `cart_db`, `order_db`, `wallet_db`).
+- **Databases**: **MySQL 8.4** across 6 isolated physical schemas (`profile_db`, `product_db`, `cart_db`, `order_db`, `wallet_db`, `admin_db`).
 - **Deployment Topology**: Bare-metal / native Windows service execution without Docker or Kubernetes dependencies.
 
 ---
@@ -30,6 +30,7 @@ The system context illustrates how external actors (Customers, Merchants, Admini
 flowchart TD
     Customer["fa:fa-user Customer<br/>(Shopper / Buyer)"]
     Merchant["fa:fa-user-tie Merchant<br/>(Catalog / Inventory Manager)"]
+    Admin["fa:fa-user-shield Platform Administrator<br/>(Governance, SLA Disputes, Account Bans)"]
     GitHub["fa:fa-github GitHub OAuth 2.0<br/>(Social Identity Provider)"]
 
     subgraph E-ShoppingZone ["E-ShoppingZone Platform Boundary"]
@@ -39,6 +40,7 @@ flowchart TD
 
     Customer -->|Browses Catalog, Manages Cart, Pays via Wallet / COD| WebUI
     Merchant -->|Manages Products, Adjusts Stock, Monitors Orders| WebUI
+    Admin -->|Oversees Platform KPIs, Bans/Approves Merchants, Resolves Disputes| WebUI
     WebUI -->|RESTful APIs / JSON / HttpOnly Cookies| BackendPlatform
     BackendPlatform -->|OAuth 2.0 Code Exchange & Profile Sync| GitHub
 ```
@@ -63,6 +65,7 @@ flowchart TB
         CartSvc["Cart Microservice<br/>(Port 8083)"]
         OrderSvc["Order Microservice<br/>(Port 8084)"]
         WalletSvc["Wallet Microservice<br/>(Port 8085)"]
+        AdminSvc["Admin Microservice<br/>(Port 8086)"]
     end
 
     subgraph Databases ["Database-Per-Service Schemas (MySQL 8.4 @ Port 3306)"]
@@ -71,6 +74,7 @@ flowchart TB
         CartDB[("cart_db")]
         OrderDB[("order_db")]
         WalletDB[("wallet_db")]
+        AdminDB[("admin_db")]
     end
 
     Browser -->|HTTP / REST (Port 8080)| Gateway
@@ -80,23 +84,28 @@ flowchart TB
     CartSvc -.->|Heartbeat Registration| Eureka
     OrderSvc -.->|Heartbeat Registration| Eureka
     WalletSvc -.->|Heartbeat Registration| Eureka
+    AdminSvc -.->|Heartbeat Registration| Eureka
 
     Gateway -->|/api/auth/**, /api/profile/**| ProfileSvc
     Gateway -->|/api/products/**, /api/categories/**| ProductSvc
     Gateway -->|/api/cart/**| CartSvc
     Gateway -->|/api/orders/**| OrderSvc
     Gateway -->|/api/wallet/**| WalletSvc
+    Gateway -->|/api/admin/**, /api/disputes/**| AdminSvc
 
     ProfileSvc -->|JPA / JDBC| ProfileDB
     ProductSvc -->|JPA / JDBC| ProductDB
     CartSvc -->|JPA / JDBC| CartDB
     OrderSvc -->|JPA / JDBC| OrderDB
     WalletSvc -->|JPA / JDBC| WalletDB
+    AdminSvc -->|JPA / JDBC| AdminDB
 
     CartSvc -->|Synchronous RestTemplate| ProductSvc
     OrderSvc -->|Synchronous RestTemplate| CartSvc
     OrderSvc -->|Synchronous RestTemplate| ProductSvc
     OrderSvc -->|Synchronous RestTemplate| WalletSvc
+    AdminSvc -->|Synchronous RestTemplate| ProfileSvc
+    AdminSvc -->|Synchronous RestTemplate| OrderSvc
 ```
 
 ---
@@ -112,6 +121,7 @@ flowchart TB
 | **Cart Service** | `8083` | `cart_db` | Customer cart lifecycle, line item aggregation, live price verification against Product Service, subtotal calculations, and anti-IDOR customer isolation. |
 | **Wallet Service** | `8085` | `wallet_db` | Financial transaction ledger, `@Lock(LockModeType.PESSIMISTIC_WRITE)` balance deductions, deposit simulation, internal payment/refund Saga endpoints, and idempotency key gate. |
 | **Order Service** | `8084` | `order_db` | Checkout Saga orchestrator, immutable order snapshots, payment method dispatch (Wallet vs COD), compensating rollbacks, crash reconciliation, and merchant order visibility. |
+| **Admin Service** | `8086` | `admin_db` | Merchant approval/freeze governance, automated 2-minute SLA dispute escalation timer (`@Scheduled`), Saga administrative refund compensation, immutable audit logs, and platform summary metrics aggregation. |
 
 ---
 

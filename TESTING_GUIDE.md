@@ -3,8 +3,8 @@
 [![Java 8](https://img.shields.io/badge/Java-8-orange.svg)](https://www.oracle.com/java/)
 [![JUnit 5](https://img.shields.io/badge/JUnit-5.8.2-blue.svg)](https://junit.org/junit5/)
 [![Vitest](https://img.shields.io/badge/Vitest-1.6.0-green.svg)](https://vitest.dev/)
-[![Tests](https://img.shields.io/badge/Backend%20Tests-120%2F120%20Passing-brightgreen.svg)]()
-[![Tests](https://img.shields.io/badge/Frontend%20Tests-20%2F20%20Passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Backend%20Tests-142%2F142%20Passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Frontend%20Tests-22%2F22%20Passing-brightgreen.svg)]()
 
 This guide documents the comprehensive testing strategy, execution procedures, test suite breakdowns, concurrency test mechanics, and audit resolution for the **E-ShoppingZone** microservices platform.
 
@@ -60,12 +60,13 @@ Every microservice contains comprehensive JUnit 5 and Mockito tests. All tests e
 | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
 | `discovery-server` | 1 | 0 | 0 | 0 | **PASSED** | Eureka server context load and self-registration |
 | `api-gateway` | 1 | 0 | 0 | 0 | **PASSED** | Gateway route configuration and context load |
-| `profile-service` | 26 | 0 | 0 | 0 | **PASSED** | BCrypt hashing, JWT generation, RTR, Replay attack detection, Anti-CSRF filter, OAuth exchange |
+| `profile-service` | 27 | 0 | 0 | 0 | **PASSED** | BCrypt hashing, JWT generation, RTR, Replay attack detection, Anti-CSRF filter, OAuth exchange, admin internal endpoints |
 | `product-service` | 25 | 0 | 0 | 0 | **PASSED** | Category CRUD, dynamic product filtering, search, merchant IDOR, Saga stock reservation & release |
 | `cart-service` | 16 | 0 | 0 | 0 | **PASSED** | Line item aggregation, live price calculation, stock boundary check, Anti-IDOR isolation |
 | `wallet-service` | 24 | 0 | 0 | 0 | **PASSED** | Pessimistic locking deductions, 10-thread concurrency, immutable ledger, idempotency keys, refund compensation |
-| `order-service` | 27 | 0 | 0 | 0 | **PASSED** | Checkout Saga orchestration, COD workflow, compensation on payment failure, Anti-IDOR 404s, merchant item view |
-| **Total Backend Reactor** | **120** | **0** | **0** | **0** | **100% PASS** | **Zero Regressions Across All Modules** |
+| `order-service` | 27 | 0 | 0 | 0 | **PASSED** | Checkout Saga orchestration, COD workflow, compensation on payment failure, Anti-IDOR 404s, merchant item view, administrative dispute refunds |
+| `admin-service` | 21 | 0 | 0 | 0 | **PASSED** | Platform KPI metrics aggregation, merchant approval & ban governance, 2-minute SLA dispute timer, scheduled auto-escalation, admin refund override |
+| **Total Backend Reactor** | **142** | **0** | **0** | **0** | **100% PASS** | **Zero Regressions Across All Modules** |
 
 ---
 

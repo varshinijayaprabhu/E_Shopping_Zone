@@ -3,6 +3,7 @@ package com.eshopping.order.service;
 import com.eshopping.order.dto.CheckoutRequestDTO;
 import com.eshopping.order.dto.MerchantOrderItemDTO;
 import com.eshopping.order.dto.OrderDTO;
+import com.eshopping.order.dto.OrderMetricsSummaryDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -21,5 +22,11 @@ public interface OrderService {
     OrderDTO cancelOrder(Long orderId, Long customerId, String reason);
 
     int reconcilePendingSagas();
+
+    OrderMetricsSummaryDTO getMetricsSummary();
+
+    OrderDTO updateOrderStatus(Long orderId, String status);
+
+    OrderDTO adminDisputeRefund(Long orderId, String reason);
 }
 

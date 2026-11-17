@@ -49,6 +49,11 @@ graph TD
         O --- OI
         O --- PR
     end
+
+    subgraph admin_db
+        AL[admin_audit_logs]
+        DT[dispute_tickets]
+    end
 ```
 
 ---
@@ -316,20 +321,70 @@ Payment audit trail associated with an order.
 
 ---
 
+### 2.6 Admin Governance Schema (`admin_db`)
+
+#### Table: `admin_audit_logs`
+Immutable audit trail recording all administrative governance actions, account bans, and dispute resolution overrides.
+
+| Column | Type | Nullable | Description |
+| :--- | :--- | :---: | :--- |
+| `id` | `BIGINT` | NO | Primary Key (AUTO_INCREMENT) |
+| `admin_id` | `BIGINT` | NO | User ID of the administrator performing the action |
+| `action_type` | `VARCHAR(50)` | NO | Type of action: `MERCHANT_APPROVE`, `MERCHANT_SUSPEND`, `DISPUTE_RESOLUTION_OVERRIDE` |
+| `target_entity_type` | `VARCHAR(50)` | NO | Entity class: `MERCHANT`, `USER`, `ORDER`, `DISPUTE` |
+| `target_entity_id` | `BIGINT` | NO | ID of target entity |
+| `reason` | `VARCHAR(500)` | YES | Mandatory human-readable operational justification |
+| `metadata` | `TEXT` | YES | JSON snapshot of parameters or state change |
+| `ip_address` | `VARCHAR(45)` | YES | Client IP address of requesting administrator |
+| `created_at` | `TIMESTAMP` | NO | Immutable record creation timestamp (`DEFAULT CURRENT_TIMESTAMP`) |
+
+* `PRIMARY KEY (id)`
+* `INDEX idx_audit_admin (admin_id)`
+* `INDEX idx_audit_action (action_type)`
+
+#### Table: `dispute_tickets`
+Tracks post-purchase customer claims, 2-minute demonstration merchant SLA deadlines, automated escalation timers, and resolution states.
+
+| Column | Type | Nullable | Description |
+| :--- | :--- | :---: | :--- |
+| `id` | `BIGINT` | NO | Primary Key (AUTO_INCREMENT) |
+| `order_id` | `BIGINT` | NO | Target order being disputed (Unique constraint) |
+| `customer_id` | `BIGINT` | NO | ID of buyer who opened the dispute ticket |
+| `merchant_id` | `BIGINT` | NO | ID of merchant fulfilling the disputed order item |
+| `issue_reason` | `VARCHAR(255)` | NO | Categorized issue reason |
+| `customer_comment` | `TEXT` | YES | Buyer description / proof summary |
+| `merchant_response` | `TEXT` | YES | Merchant response or rejection reason |
+| `admin_notes` | `TEXT` | YES | Administrative override findings and justification |
+| `refund_amount` | `DECIMAL(12,2)`| NO | Disputed INR claim amount |
+| `status` | `VARCHAR(40)` | NO | State: `PENDING_MERCHANT`, `MERCHANT_ACCEPTED`, `MERCHANT_REJECTED`, `ESCALATED_TO_ADMIN`, `REFUNDED_BY_ADMIN`, `RESOLVED_NO_REFUND` |
+| `merchant_deadline` | `TIMESTAMP` | YES | Target SLA expiry timestamp (Created + 2 mins) |
+| `escalated_at` | `TIMESTAMP` | YES | Timestamp when auto-escalated by SLA background worker |
+| `resolved_at` | `TIMESTAMP` | YES | Timestamp when ticket was permanently closed |
+| `created_at` | `TIMESTAMP` | NO | Ticket opening timestamp |
+| `updated_at` | `TIMESTAMP` | NO | Ticket status modification timestamp |
+
+* `PRIMARY KEY (id)`
+* `INDEX idx_disputes_order (order_id)`
+* `INDEX idx_disputes_customer (customer_id)`
+* `INDEX idx_disputes_merchant (merchant_id)`
+* `INDEX idx_disputes_status (status)`
+
+---
+
 ## 3. Database Initialization, Backup & Recovery
 
 ### 3.1 Fresh Initialization
-To initialize all five schemas and pre-populate seed data:
+To initialize all six schemas and pre-populate seed data:
 ```powershell
 & "C:\Program Files\MySQL\MySQL Server 8.4\bin\mysql.exe" -u root -p < .\scripts\init-databases.sql
 ```
 
 ### 3.2 Full System Backup (Logical Dump)
-To create an atomic point-in-time backup across all 5 schemas:
+To create an atomic point-in-time backup across all 6 schemas:
 ```powershell
 $backupFile = "backup_eshopping_$(Get-Date -Format 'yyyyMMdd_HHmmss').sql"
 & "C:\Program Files\MySQL\MySQL Server 8.4\bin\mysqldump.exe" -u root -p `
-    --databases profile_db product_db cart_db wallet_db order_db `
+    --databases profile_db product_db cart_db wallet_db order_db admin_db `
     --routines --events --single-transaction --result-file=$backupFile
 Write-Host "Backup completed: $backupFile"
 ```

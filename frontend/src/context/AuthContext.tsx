@@ -6,6 +6,7 @@ import { setAccessToken, setAuthFailureHandler } from '../api/axiosClient';
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  isAdmin: boolean;
   isMerchant: boolean;
   isCustomer: boolean;
   isLoading: boolean;
@@ -142,6 +143,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const isAdmin = !!user?.roles?.some((r) => r === 'ROLE_ADMIN' || r === 'ADMIN');
   const isMerchant = !!user?.roles?.some((r) => r === 'ROLE_MERCHANT' || r === 'MERCHANT');
   const isCustomer = !!user?.roles?.some((r) => r === 'ROLE_CUSTOMER' || r === 'CUSTOMER');
 
@@ -150,6 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         user,
         isAuthenticated: !!user,
+        isAdmin,
         isMerchant,
         isCustomer,
         isLoading,
