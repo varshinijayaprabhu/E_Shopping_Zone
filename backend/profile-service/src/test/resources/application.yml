@@ -1,0 +1,46 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: profile-service
+  datasource:
+    url: jdbc:h2:mem:profile_db;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: test_client_id
+            client-secret: test_client_secret
+            scope: read:user,user:email
+
+eureka:
+  client:
+    enabled: false
+
+eshopping:
+  security:
+    jwt:
+      secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+      expiration-ms: 900000
+      refresh-expiration-days: 7
+    merchant-invite-code: ESHOPPING_MERCHANT_INVITE_2026
+    oauth2:
+      authorized-redirect-uri: http://localhost:5173/oauth2/redirect
+
+logging:
+  level:
+    root: WARN
+    com.eshopping.profile: INFO
+

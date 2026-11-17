@@ -1,0 +1,100 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: order-service
+  cloud:
+    loadbalancer:
+      cache:
+        ttl: 3s
+
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/order_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
+    username: ${MYSQL_USER:${DB_USER:root}}
+    password: ${MYSQL_PASSWORD:${DB_PASSWORD:}}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 300000
+      connection-timeout: 20000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: false
+    show-sql: false
+    open-in-view: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+    registry-fetch-interval-seconds: 5
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}:${random.value}
+
+internal:
+  service:
+    secret: ${INTERNAL_SERVICE_SECRET:ESHOPPING_INTERNAL_SECRET_2026}
+
+eshopping:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+  internal:
+    secret-key: ${INTERNAL_SERVICE_SECRET:ESHOPPING_INTERNAL_SECRET_2026}
+  services:
+    cart-service:
+      url: ${CART_SERVICE_URL:http://cart-service}
+    product-service:
+      url: ${PRODUCT_SERVICE_URL:http://product-service}
+    wallet-service:
+      url: ${WALLET_SERVICE_URL:http://wallet-service}
+
+services:
+  cart:
+    url: ${CART_SERVICE_URL:http://cart-service}
+  product:
+    url: ${PRODUCT_SERVICE_URL:http://product-service}
+  wallet:
+    url: ${WALLET_SERVICE_URL:http://wallet-service}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  file:
+    name: logs/order-service.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 7
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  level:
+    root: INFO
+    com.eshopping.order: DEBUG
+
