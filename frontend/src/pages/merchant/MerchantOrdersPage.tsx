@@ -1,27 +1,40 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ShoppingBag, Truck, Calendar } from 'lucide-react';
+import { ShoppingBag, Truck, Calendar, CheckCircle2, PackageCheck, AlertTriangle } from 'lucide-react';
 import { orderApi } from '../../api/orderApi';
-import { MerchantOrderItem } from '../../types';
+import { adminApi } from '../../api/adminApi';
+import { MerchantOrderItem, DisputeTicket } from '../../types';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { OrderStatusBadge } from '../../components/order/OrderStatusBadge';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+import { useNotification } from '../../context/NotificationContext';
 
 export const MerchantOrdersPage: React.FC = () => {
+  const { showSuccess, showError } = useNotification();
   const [orders, setOrders] = useState<MerchantOrderItem[]>([]);
+  const [disputes, setDisputes] = useState<DisputeTicket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
+  const [updatingOrderNum, setUpdatingOrderNum] = useState<string | null>(null);
+  const [respondingDisputeId, setRespondingDisputeId] = useState<number | null>(null);
 
   const fetchOrders = useCallback(async (page = 0) => {
     setIsLoading(true);
     try {
-      const res = await orderApi.getMerchantOrders(page, 15);
-      if (res.success && res.data) {
-        setOrders(res.data.content);
-        setTotalPages(res.data.totalPages);
-        setTotalElements(res.data.totalElements);
+      const [orderRes, disputesRes] = await Promise.all([
+        orderApi.getMerchantOrders(page, 15),
+        adminApi.getMyDisputes().catch(() => ({ success: false, data: [] })),
+      ]);
+
+      if (orderRes.success && orderRes.data) {
+        setOrders(orderRes.data.content);
+        setTotalPages(orderRes.data.totalPages);
+        setTotalElements(orderRes.data.totalElements);
         setCurrentPage(page);
+      }
+      if (disputesRes.success && Array.isArray(disputesRes.data)) {
+        setDisputes(disputesRes.data);
       }
     } catch {
       setOrders([]);
@@ -33,6 +46,54 @@ export const MerchantOrdersPage: React.FC = () => {
   useEffect(() => {
     fetchOrders(0);
   }, [fetchOrders]);
+
+  const handleUpdateStatus = async (orderNumber: string, newStatus: string) => {
+    setUpdatingOrderNum(orderNumber);
+    try {
+      const res = await orderApi.updateOrderStatus(orderNumber, newStatus);
+      if (res.success) {
+        showSuccess(`Order #${orderNumber} marked as ${newStatus}!`);
+        setOrders((prev) =>
+          prev.map((o) => (o.orderNumber === orderNumber ? { ...o, orderStatus: newStatus } : o))
+        );
+      } else {
+        showError(res.message || 'Failed to update order status');
+      }
+    } catch (err: any) {
+      showError(err.response?.data?.message || err.message || 'Failed to update order status');
+    } finally {
+      setUpdatingOrderNum(null);
+    }
+  };
+
+  const handleMerchantDisputeResponse = async (
+    disputeId: number,
+    action: 'ACCEPT' | 'REJECT'
+  ) => {
+    setRespondingDisputeId(disputeId);
+    try {
+      const comment =
+        action === 'ACCEPT'
+          ? 'Merchant accepted customer dispute claim. Refund authorized.'
+          : 'Merchant rejected claim. Evidence supports proper delivery. Escalated to admin.';
+      const res = await adminApi.merchantRespond(disputeId, action, comment);
+      if (res.success && res.data) {
+        showSuccess(
+          action === 'ACCEPT'
+            ? 'Dispute accepted. Customer refund processed automatically.'
+            : 'Dispute rejected and escalated to Platform Admin for final review.'
+        );
+        setDisputes((prev) => prev.map((d) => (d.id === disputeId ? res.data : d)));
+        await fetchOrders(currentPage);
+      } else {
+        showError(res.message || 'Failed to submit response');
+      }
+    } catch (err: any) {
+      showError(err.response?.data?.message || err.message || 'Dispute action failed');
+    } finally {
+      setRespondingDisputeId(null);
+    }
+  };
 
   return (
     <div className="space-y-8 pb-16">
@@ -69,6 +130,7 @@ export const MerchantOrdersPage: React.FC = () => {
                   <th className="py-3.5 px-4 text-right">Subtotal</th>
                   <th className="py-3.5 px-4">Shipping Destination</th>
                   <th className="py-3.5 px-4 text-center">Status</th>
+                  <th className="py-3.5 px-4 text-center">Fulfillment Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -115,6 +177,92 @@ export const MerchantOrdersPage: React.FC = () => {
 
                     <td className="py-3.5 px-4 text-center">
                       <OrderStatusBadge status={o.orderStatus} />
+                    </td>
+
+                    <td className="py-3.5 px-4 text-center">
+                      {(() => {
+                        const orderDispute = o.orderId ? disputes.find((d) => d.orderId === o.orderId) : null;
+                        return (
+                          <div className="space-y-2">
+                            {(o.orderStatus === 'CONFIRMED' || o.orderStatus === 'PLACED') && (
+                              <button
+                                type="button"
+                                disabled={updatingOrderNum === o.orderNumber}
+                                onClick={() => handleUpdateStatus(o.orderNumber, 'SHIPPED')}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors shadow-2xs"
+                              >
+                                <Truck className="w-3.5 h-3.5" />
+                                <span>{updatingOrderNum === o.orderNumber ? 'Updating...' : 'Mark Shipped'}</span>
+                              </button>
+                            )}
+                            {o.orderStatus === 'SHIPPED' && (
+                              <button
+                                type="button"
+                                disabled={updatingOrderNum === o.orderNumber}
+                                onClick={() => handleUpdateStatus(o.orderNumber, 'DELIVERED')}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors shadow-2xs"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>{updatingOrderNum === o.orderNumber ? 'Updating...' : 'Mark Delivered'}</span>
+                              </button>
+                            )}
+                            {o.orderStatus === 'DELIVERED' && (
+                              <span className="text-[11px] font-semibold text-emerald-600 flex items-center justify-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Fulfilled
+                              </span>
+                            )}
+                            {o.orderStatus === 'CANCELLED' && (
+                              <span className="text-[11px] font-medium text-slate-400">
+                                Cancelled
+                              </span>
+                            )}
+                            {o.orderStatus === 'REFUNDED_BY_ADMIN' && (
+                              <span className="text-[11px] font-medium text-amber-600">
+                                Refunded
+                              </span>
+                            )}
+
+                            {/* Dispute Notice & Actions */}
+                            {orderDispute && (
+                              <div className="mt-2 p-2 bg-amber-50/90 border border-amber-200 rounded-xl text-[10px] text-left space-y-1">
+                                <div className="flex items-center justify-between text-amber-900 font-bold">
+                                  <span className="flex items-center gap-1">
+                                    <AlertTriangle className="w-3 h-3 text-amber-600" />
+                                    Dispute #{orderDispute.id}
+                                  </span>
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded-sm bg-amber-100 text-amber-800">
+                                    {orderDispute.status.replace(/_/g, ' ')}
+                                  </span>
+                                </div>
+                                <p className="text-slate-600 truncate font-medium">
+                                  {orderDispute.issueReason}
+                                </p>
+
+                                {orderDispute.status === 'PENDING_MERCHANT' && (
+                                  <div className="flex gap-1 pt-1 border-t border-amber-200/60">
+                                    <button
+                                      type="button"
+                                      disabled={respondingDisputeId === orderDispute.id}
+                                      onClick={() => handleMerchantDisputeResponse(orderDispute.id, 'ACCEPT')}
+                                      className="flex-1 px-1.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[9px] shadow-2xs transition"
+                                    >
+                                      Accept & Refund
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={respondingDisputeId === orderDispute.id}
+                                      onClick={() => handleMerchantDisputeResponse(orderDispute.id, 'REJECT')}
+                                      className="flex-1 px-1.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded font-bold text-[9px] shadow-2xs transition"
+                                    >
+                                      Reject (Escalate)
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))}

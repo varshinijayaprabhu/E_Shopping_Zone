@@ -15,6 +15,8 @@ public interface AdminGovernanceService {
 
     void updateMerchantStatus(Long adminId, Long merchantId, boolean enabled, String reason, String ipAddress);
 
+    void updateMerchantStatus(Long adminId, String adminEmail, Long merchantId, boolean enabled, String reason, String ipAddress);
+
     Page<AdminAuditLogDTO> getAuditLogs(Pageable pageable);
 
     DisputeResponseDTO createDispute(Long customerId, DisputeCreateRequestDTO request);
@@ -22,6 +24,8 @@ public interface AdminGovernanceService {
     DisputeResponseDTO merchantRespond(Long merchantId, Long disputeId, DisputeMerchantResponseRequestDTO request);
 
     DisputeResponseDTO adminResolveDispute(Long adminId, Long disputeId, DisputeAdminResolveRequestDTO request, String ipAddress);
+
+    DisputeResponseDTO adminResolveDispute(Long adminId, String adminEmail, Long disputeId, DisputeAdminResolveRequestDTO request, String ipAddress);
 
     List<DisputeResponseDTO> getCustomerDisputes(Long customerId);
 

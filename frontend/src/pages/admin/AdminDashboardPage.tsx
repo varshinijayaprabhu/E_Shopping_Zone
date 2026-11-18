@@ -22,7 +22,7 @@ import { formatCurrency, formatDate } from '../../utils/formatters';
 export const AdminDashboardPage: React.FC = () => {
   const { showSuccess, showError } = useNotification();
 
-  const [activeTab, setActiveTab] = useState<'metrics' | 'merchants' | 'disputes' | 'audit'>('metrics');
+  const [activeTab, setActiveTab] = useState<'merchants' | 'disputes' | 'audit'>('merchants');
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [merchants, setMerchants] = useState<MerchantProfile[]>([]);
   const [disputes, setDisputes] = useState<DisputeTicket[]>([]);
@@ -173,7 +173,6 @@ export const AdminDashboardPage: React.FC = () => {
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/30 text-indigo-300 border border-indigo-400/30">
               ROLE_ADMIN PORTAL
             </span>
-            <span className="text-xs text-slate-400">Microservice Port: 8086</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
             Platform Governance & Administration
@@ -286,16 +285,6 @@ export const AdminDashboardPage: React.FC = () => {
       {/* Tab Navigation */}
       <div className="border-b border-slate-200 flex gap-4">
         <button
-          onClick={() => setActiveTab('metrics')}
-          className={`pb-3 text-sm font-semibold border-b-2 transition-colors ${
-            activeTab === 'metrics'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          Platform Overview
-        </button>
-        <button
           onClick={() => setActiveTab('merchants')}
           className={`pb-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
             activeTab === 'merchants'
@@ -335,57 +324,7 @@ export const AdminDashboardPage: React.FC = () => {
         </button>
       </div>
 
-      {/* TAB 1: Platform Overview */}
-      {activeTab === 'metrics' && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
-            <h2 className="text-lg font-bold text-slate-900 mb-2">Microservices Architecture Health</h2>
-            <p className="text-sm text-slate-500 mb-4">
-              Decentralized database-per-service configuration with Eureka service discovery and Spring Cloud Gateway routing.
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-4 rounded-lg bg-slate-50 border border-slate-100">
-                <div className="text-xs font-semibold text-slate-400">admin-service</div>
-                <div className="text-sm font-bold text-slate-800 mt-1">Port 8086 • admin_db</div>
-                <div className="inline-flex items-center gap-1.5 mt-2 text-xs text-emerald-600 font-medium">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  Active & Scheduled SLA Timer
-                </div>
-              </div>
-
-              <div className="p-4 rounded-lg bg-slate-50 border border-slate-100">
-                <div className="text-xs font-semibold text-slate-400">profile-service</div>
-                <div className="text-sm font-bold text-slate-800 mt-1">Port 8081 • profile_db</div>
-                <div className="inline-flex items-center gap-1.5 mt-2 text-xs text-emerald-600 font-medium">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                  RBAC & Governance Gate
-                </div>
-              </div>
-
-              <div className="p-4 rounded-lg bg-slate-50 border border-slate-100">
-                <div className="text-xs font-semibold text-slate-400">order-service</div>
-                <div className="text-sm font-bold text-slate-800 mt-1">Port 8084 • order_db</div>
-                <div className="inline-flex items-center gap-1.5 mt-2 text-xs text-emerald-600 font-medium">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                  Saga Compensation & Refunds
-                </div>
-              </div>
-
-              <div className="p-4 rounded-lg bg-slate-50 border border-slate-100">
-                <div className="text-xs font-semibold text-slate-400">wallet-service</div>
-                <div className="text-sm font-bold text-slate-800 mt-1">Port 8085 • wallet_db</div>
-                <div className="inline-flex items-center gap-1.5 mt-2 text-xs text-emerald-600 font-medium">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                  Ledger Transactions
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: Responsibility 1 - Merchant Governance & Ban/Freeze Gate */}
+      {/* TAB 1: Responsibility 1 - Merchant Governance & Ban/Freeze Gate */}
       {activeTab === 'merchants' && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -446,9 +385,9 @@ export const AdminDashboardPage: React.FC = () => {
                               Active / Approved
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200">
-                              <Ban className="w-3 h-3" />
-                              Suspended / Banned
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                              <Clock className="w-3 h-3" />
+                              Pending Approval / Suspended
                             </span>
                           )}
                         </td>

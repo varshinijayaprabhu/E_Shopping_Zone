@@ -18,8 +18,8 @@ public class CustomerRegisterRequestDTO {
     @NotBlank(message = "Password is required")
     @Size(min = 8, max = 64, message = "Password must be between 8 and 64 characters")
     @Pattern(
-            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$",
-            message = "Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character (@$!%*?&)"
+            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&.#^+\\-_])[A-Za-z\\d@$!%*?&.#^+\\-_]{8,64}$",
+            message = "Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special symbol (@$!%*?&.#^+\\-_)"
     )
     private String password;
 

@@ -76,11 +76,6 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponseDTO registerMerchant(MerchantRegisterRequestDTO request, String clientIp, String userAgent, HttpServletResponse response) {
-        if (!this.merchantInviteCode.equals(request.getMerchantInviteCode())
-                && !"ESHOPPING_MERCHANT_INVITE_2026".equals(request.getMerchantInviteCode())) {
-            throw new InvalidInviteCodeException("Invalid or unauthorized merchant invite code");
-        }
-
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new EmailAlreadyExistsException("User with email '" + request.getEmail() + "' already exists");
         }
@@ -91,14 +86,21 @@ public class AuthServiceImpl implements AuthService {
         user.setFullName(request.getFullName().trim());
         user.setPhoneNumber(request.getPhoneNumber());
         user.setAuthProvider("LOCAL");
-        user.setEnabled(true);
-        // Provisioned ROLE_MERCHANT
+        // Option A: Merchant accounts start as disabled (PENDING_APPROVAL) until verified by Administrator
+        user.setEnabled(false);
         user.addRole("ROLE_MERCHANT");
 
         User savedUser = userRepository.save(user);
-        log.info("Registered and provisioned new merchant account: {}", savedUser.getEmail());
+        log.info("Registered new merchant account (PENDING APPROVAL): {}", savedUser.getEmail());
 
-        return createAuthResponse(savedUser, clientIp, userAgent, response);
+        // Return user summary without active session tokens until approved
+        AuthResponseDTO.UserSummary summary = new AuthResponseDTO.UserSummary(
+                savedUser.getId(),
+                savedUser.getEmail(),
+                savedUser.getFullName(),
+                savedUser.getRoles()
+        );
+        return new AuthResponseDTO(null, 0L, summary);
     }
 
     @Override
@@ -111,7 +113,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         if (!user.isEnabled()) {
-            throw new InvalidCredentialsException("Account is disabled. Please contact support.");
+            throw new InvalidCredentialsException("Your account is pending administrator approval or has been disabled. Please contact support.");
         }
 
         log.info("User logged in successfully: {}", user.getEmail());

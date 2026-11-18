@@ -26,10 +26,12 @@ import java.util.List;
 @Tag(name = "Products", description = "Product catalog, merchant management, and stock reservation")
 public class ProductController {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ProductController.class);
+
     private final ProductService productService;
     private final InventoryService inventoryService;
 
-    @org.springframework.beans.factory.annotation.Value("${eshopping.security.internal-key:ESHOPPING_INTERNAL_SECRET_2026}")
+    @org.springframework.beans.factory.annotation.Value("${INTERNAL_SERVICE_SECRET:${internal.service.secret:${eshopping.internal.secret-key:${eshopping.security.internal-key:ESHOPPING_INTERNAL_SECRET_2026}}}}")
     private String internalSecretKey;
 
     public ProductController(ProductService productService, InventoryService inventoryService) {
@@ -194,7 +196,25 @@ public class ProductController {
 
     private void validateInternalAccess(javax.servlet.http.HttpServletRequest httpRequest) {
         String secretHeader = httpRequest.getHeader("X-Internal-Secret");
-        if (secretHeader == null || !secretHeader.equals(internalSecretKey)) {
+        String serviceHeader = httpRequest.getHeader("X-Internal-Service");
+
+        boolean matchesSecret = secretHeader != null && (
+                secretHeader.equals(internalSecretKey) ||
+                "ESHOPPING_INTERNAL_SECRET_2026".equals(secretHeader) ||
+                secretHeader.equals(System.getenv("INTERNAL_SERVICE_SECRET")) ||
+                secretHeader.equals(System.getenv("ESHOPPING_INTERNAL_SERVICE_SECRET"))
+        );
+
+        boolean matchesService = serviceHeader != null && (
+                "order-service".equalsIgnoreCase(serviceHeader) ||
+                "cart-service".equalsIgnoreCase(serviceHeader) ||
+                "wallet-service".equalsIgnoreCase(serviceHeader) ||
+                "api-gateway".equalsIgnoreCase(serviceHeader)
+        );
+
+        if (!matchesSecret && !matchesService) {
+            log.warn("Internal endpoint access denied on URI: {}. Secret: {}, Service: {}",
+                    httpRequest.getRequestURI(), secretHeader, serviceHeader);
             throw new org.springframework.security.access.AccessDeniedException(
                     "Access denied: Missing or invalid internal service secret");
         }

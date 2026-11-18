@@ -158,6 +158,7 @@ export interface Order {
 
 export interface MerchantOrderItem {
   orderItemId: number;
+  orderId?: number;
   orderNumber: string;
   orderStatus: string;
   orderCreatedAt: string;

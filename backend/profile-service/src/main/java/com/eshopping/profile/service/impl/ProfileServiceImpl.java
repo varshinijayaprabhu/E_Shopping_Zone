@@ -97,8 +97,11 @@ public class ProfileServiceImpl implements ProfileService {
     @Transactional(readOnly = true)
     public UserCountsDTO getUserCounts() {
         long customers = userRepository.countByRoleName("ROLE_CUSTOMER");
-        long merchants = userRepository.countByRoleName("ROLE_MERCHANT");
-        return new UserCountsDTO(customers, merchants);
+        List<User> merchants = userRepository.findAllMerchants();
+        long totalMerchants = merchants.size();
+        long pendingMerchants = merchants.stream().filter(m -> !m.isEnabled()).count();
+        long totalUsers = customers + totalMerchants;
+        return new UserCountsDTO(totalUsers, customers, totalMerchants, pendingMerchants);
     }
 }
 

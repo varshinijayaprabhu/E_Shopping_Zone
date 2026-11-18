@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 public class MerchantOrderItemDTO {
 
     private Long orderItemId;
+    private Long orderId;
     private String orderNumber;
     private OrderStatus orderStatus;
     private LocalDateTime orderCreatedAt;
@@ -50,6 +51,14 @@ public class MerchantOrderItemDTO {
 
     public void setOrderItemId(Long orderItemId) {
         this.orderItemId = orderItemId;
+    }
+
+    public Long getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(Long orderId) {
+        this.orderId = orderId;
     }
 
     public String getOrderNumber() {

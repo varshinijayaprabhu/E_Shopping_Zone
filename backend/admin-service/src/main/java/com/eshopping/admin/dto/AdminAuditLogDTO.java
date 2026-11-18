@@ -6,6 +6,7 @@ public class AdminAuditLogDTO {
 
     private Long id;
     private Long adminId;
+    private String adminEmail;
     private String actionType;
     private String targetEntityType;
     private Long targetEntityId;
@@ -20,8 +21,15 @@ public class AdminAuditLogDTO {
     public AdminAuditLogDTO(Long id, Long adminId, String actionType, String targetEntityType,
                            Long targetEntityId, String reason, String metadata,
                            String ipAddress, LocalDateTime createdAt) {
+        this(id, adminId, "admin@eshopping.com", actionType, targetEntityType, targetEntityId, reason, metadata, ipAddress, createdAt);
+    }
+
+    public AdminAuditLogDTO(Long id, Long adminId, String adminEmail, String actionType, String targetEntityType,
+                           Long targetEntityId, String reason, String metadata,
+                           String ipAddress, LocalDateTime createdAt) {
         this.id = id;
         this.adminId = adminId;
+        this.adminEmail = adminEmail != null ? adminEmail : "admin@eshopping.com";
         this.actionType = actionType;
         this.targetEntityType = targetEntityType;
         this.targetEntityId = targetEntityId;
@@ -45,6 +53,14 @@ public class AdminAuditLogDTO {
 
     public void setAdminId(Long adminId) {
         this.adminId = adminId;
+    }
+
+    public String getAdminEmail() {
+        return adminEmail;
+    }
+
+    public void setAdminEmail(String adminEmail) {
+        this.adminEmail = adminEmail;
     }
 
     public String getActionType() {

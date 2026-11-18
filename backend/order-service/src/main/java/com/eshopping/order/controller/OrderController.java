@@ -156,6 +156,14 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.success("Order status updated", orderService.updateOrderStatus(id, status)));
     }
 
+    @PutMapping("/status/{orderNumber}")
+    @Operation(summary = "Update Order Status by Order Number", description = "Fulfillment update (e.g. SHIPPED, DELIVERED)")
+    public ResponseEntity<ApiResponse<OrderDTO>> updateOrderStatusByNumber(
+            @PathVariable String orderNumber,
+            @RequestParam String status) {
+        return ResponseEntity.ok(ApiResponse.success("Order status updated", orderService.updateOrderStatusByNumber(orderNumber, status)));
+    }
+
     @PostMapping("/internal/{id}/dispute-refund")
     @Operation(summary = "Internal: Process administrative dispute refund", description = "Triggers refund compensation to customer wallet and marks status as REFUNDED_BY_ADMIN")
     public ResponseEntity<ApiResponse<OrderDTO>> adminDisputeRefund(

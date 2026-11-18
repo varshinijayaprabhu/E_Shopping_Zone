@@ -27,6 +27,8 @@ public interface OrderService {
 
     OrderDTO updateOrderStatus(Long orderId, String status);
 
+    OrderDTO updateOrderStatusByNumber(String orderNumber, String status);
+
     OrderDTO adminDisputeRefund(Long orderId, String reason);
 }
 

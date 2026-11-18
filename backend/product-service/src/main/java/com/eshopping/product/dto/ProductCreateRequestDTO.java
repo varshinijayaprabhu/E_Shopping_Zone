@@ -22,7 +22,7 @@ public class ProductCreateRequestDTO {
     @DecimalMin(value = "0.01", message = "Price must be greater than zero")
     private BigDecimal price;
 
-    @Size(max = 500, message = "Image URL must not exceed 500 characters")
+    @Size(max = 4096, message = "Image URL must not exceed 4096 characters")
     private String imageUrl;
 
     @Min(value = 0, message = "Initial stock cannot be negative")

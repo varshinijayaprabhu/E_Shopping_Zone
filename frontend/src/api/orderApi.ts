@@ -31,6 +31,11 @@ export const orderApi = {
     return res.data;
   },
 
+  updateOrderStatus: async (orderNumber: string, status: string): Promise<ApiResponse<Order>> => {
+    const res = await axiosClient.put<ApiResponse<Order>>(`/api/orders/status/${orderNumber}?status=${status}`);
+    return res.data;
+  },
+
   cancelOrder: async (id: number, reason?: string): Promise<ApiResponse<Order>> => {
     const res = await axiosClient.post<ApiResponse<Order>>(`/api/orders/${id}/cancel`, {
       reason: reason || 'Customer requested cancellation',

@@ -51,8 +51,9 @@ public class AdminController {
             HttpServletRequest httpRequest) {
 
         Long adminId = userDetails.getId();
+        String adminEmail = userDetails.getEmail();
         String ipAddress = httpRequest.getRemoteAddr();
-        adminGovernanceService.updateMerchantStatus(adminId, id, request.getEnabled(), request.getReason(), ipAddress);
+        adminGovernanceService.updateMerchantStatus(adminId, adminEmail, id, request.getEnabled(), request.getReason(), ipAddress);
 
         String message = request.getEnabled() ? "Merchant approved successfully" : "Merchant suspended successfully";
         return ResponseEntity.ok(ApiResponse.success(message, null));
@@ -78,8 +79,9 @@ public class AdminController {
             HttpServletRequest httpRequest) {
 
         Long adminId = userDetails.getId();
+        String adminEmail = userDetails.getEmail();
         String ipAddress = httpRequest.getRemoteAddr();
-        DisputeResponseDTO resolved = adminGovernanceService.adminResolveDispute(adminId, id, request, ipAddress);
+        DisputeResponseDTO resolved = adminGovernanceService.adminResolveDispute(adminId, adminEmail, id, request, ipAddress);
 
         return ResponseEntity.ok(ApiResponse.success("Dispute resolved successfully", resolved));
     }

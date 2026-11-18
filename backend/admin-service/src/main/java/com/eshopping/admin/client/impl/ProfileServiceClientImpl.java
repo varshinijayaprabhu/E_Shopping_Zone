@@ -49,15 +49,15 @@ public class ProfileServiceClientImpl implements ProfileServiceClient {
         String url = profileServiceUrl + "/api/profile/internal/merchants";
         try {
             HttpEntity<Void> entity = new HttpEntity<>(createInternalHeaders());
-            ResponseEntity<ApiResponse<List<MerchantProfileResponseDTO>>> response = restTemplate.exchange(
+            ResponseEntity<List<MerchantProfileResponseDTO>> response = restTemplate.exchange(
                     url,
                     HttpMethod.GET,
                     entity,
-                    new ParameterizedTypeReference<ApiResponse<List<MerchantProfileResponseDTO>>>() {}
+                    new ParameterizedTypeReference<List<MerchantProfileResponseDTO>>() {}
             );
 
-            if (response.getBody() != null && response.getBody().getData() != null) {
-                return response.getBody().getData();
+            if (response.getBody() != null) {
+                return response.getBody();
             }
             return Collections.emptyList();
         } catch (Exception ex) {
@@ -84,15 +84,15 @@ public class ProfileServiceClientImpl implements ProfileServiceClient {
         String url = profileServiceUrl + "/api/profile/internal/metrics/counts";
         try {
             HttpEntity<Void> entity = new HttpEntity<>(createInternalHeaders());
-            ResponseEntity<ApiResponse<UserCountsDTO>> response = restTemplate.exchange(
+            ResponseEntity<UserCountsDTO> response = restTemplate.exchange(
                     url,
                     HttpMethod.GET,
                     entity,
-                    new ParameterizedTypeReference<ApiResponse<UserCountsDTO>>() {}
+                    UserCountsDTO.class
             );
 
-            if (response.getBody() != null && response.getBody().getData() != null) {
-                return response.getBody().getData();
+            if (response.getBody() != null) {
+                return response.getBody();
             }
             return new UserCountsDTO(0, 0, 0, 0);
         } catch (Exception ex) {

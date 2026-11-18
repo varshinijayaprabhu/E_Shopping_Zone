@@ -199,11 +199,5 @@ foreach ($svc in $services | Where-Object { $_.Port -ne 8761 -and $_.Port -ne 80
     Write-Host "  * $($svc.Name.PadRight(18)): $($svc.Swagger)" -ForegroundColor DarkGray
 }
 
-Write-Host "`nPre-seeded Demonstration Credentials:" -ForegroundColor Yellow
-Write-Host "  * Administrator: admin@eshopping.com  / Password@123 (Governance & Dispute Resolution)" -ForegroundColor White
-Write-Host "  * Customer:      customer@eshopping.com / Pass1234! (Wallet Balance: ₹15,000.00)" -ForegroundColor White
-Write-Host "  * Merchant:      merchant@eshopping.com / Pass1234! (Catalog: 12 Products)" -ForegroundColor White
-$activeInvite = if ($env:MERCHANT_INVITE_CODE) { $env:MERCHANT_INVITE_CODE } else { "ESHOPPING_MERCHANT_INVITE_2026" }
-Write-Host "  * Merchant Invite Secret: $activeInvite" -ForegroundColor DarkGray
 Write-Host "`nTo gracefully shut down all services, execute: .\stop-all-services.ps1`n" -ForegroundColor Cyan
 

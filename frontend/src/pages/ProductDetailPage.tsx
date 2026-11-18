@@ -14,6 +14,7 @@ import {
 import { productApi } from '../api/productApi';
 import { Product } from '../types';
 import { formatCurrency } from '../utils/formatters';
+import { resolveImageUrl } from '../utils/imageUrl';
 import { useCart } from '../context/CartContext';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 
@@ -125,10 +126,11 @@ export const ProductDetailPage: React.FC = () => {
         {/* Left: Product Image */}
         <div className="space-y-4">
           <div className="relative aspect-square rounded-2xl overflow-hidden bg-slate-100 border border-slate-100">
-            {product.imageUrl && !imageError ? (
+            {resolveImageUrl(product.imageUrl) && !imageError ? (
               <img
-                src={product.imageUrl}
+                src={resolveImageUrl(product.imageUrl)}
                 alt={product.name}
+                referrerPolicy="no-referrer"
                 onError={() => setImageError(true)}
                 className="w-full h-full object-cover object-center"
               />

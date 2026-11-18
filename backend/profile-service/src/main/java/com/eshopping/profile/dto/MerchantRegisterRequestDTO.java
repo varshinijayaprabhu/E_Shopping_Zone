@@ -18,8 +18,8 @@ public class MerchantRegisterRequestDTO {
     @NotBlank(message = "Password is required")
     @Size(min = 8, max = 64, message = "Password must be between 8 and 64 characters")
     @Pattern(
-            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$",
-            message = "Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character (@$!%*?&)"
+            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&.#^+\\-_])[A-Za-z\\d@$!%*?&.#^+\\-_]{8,64}$",
+            message = "Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special symbol (@$!%*?&.#^+\\-_)"
     )
     private String password;
 
@@ -30,10 +30,17 @@ public class MerchantRegisterRequestDTO {
     @Pattern(regexp = "^\\+?[0-9\\-\\s]{7,25}$", message = "Phone number must be a valid international or local phone format")
     private String phoneNumber;
 
-    @NotBlank(message = "Merchant invite code is required for merchant onboarding")
+    // Optional invite code (legacy/compatibility; no longer required for registration)
     private String merchantInviteCode;
 
     public MerchantRegisterRequestDTO() {
+    }
+
+    public MerchantRegisterRequestDTO(String email, String password, String fullName, String phoneNumber) {
+        this.email = email;
+        this.password = password;
+        this.fullName = fullName;
+        this.phoneNumber = phoneNumber;
     }
 
     public MerchantRegisterRequestDTO(String email, String password, String fullName, String phoneNumber, String merchantInviteCode) {

@@ -38,14 +38,14 @@ export const authApi = {
     email: string;
     password: string;
     phone?: string;
-    inviteCode: string;
+    inviteCode?: string;
   }): Promise<ApiResponse<AuthResponse>> => {
     const res = await axiosClient.post<any>('/api/auth/register-merchant', {
       fullName: payload.fullName,
       email: payload.email,
       password: payload.password,
       phoneNumber: payload.phone || null,
-      merchantInviteCode: payload.inviteCode,
+      merchantInviteCode: payload.inviteCode || null,
     });
     const data = res.data?.data || res.data;
     return {

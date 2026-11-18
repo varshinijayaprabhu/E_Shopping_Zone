@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import javax.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -99,11 +100,14 @@ public class GlobalExceptionHandler {
         for (FieldError fe : ex.getBindingResult().getFieldErrors()) {
             fieldErrors.add(new ErrorResponseDTO.FieldErrorDTO(fe.getField(), fe.getDefaultMessage()));
         }
-        log.warn("Validation failure on URI {}: {} errors", request.getRequestURI(), fieldErrors.size());
+        String detailedMsg = fieldErrors.stream()
+                .map(fe -> fe.getField() + ": " + fe.getMessage())
+                .collect(Collectors.joining(", "));
+        log.warn("Validation failure on URI {}: {}", request.getRequestURI(), detailedMsg);
         ErrorResponseDTO error = new ErrorResponseDTO(
                 HttpStatus.BAD_REQUEST.value(),
                 "VALIDATION_FAILED",
-                "Request validation failed",
+                detailedMsg.isEmpty() ? "Request validation failed" : detailedMsg,
                 request.getRequestURI(),
                 fieldErrors
         );

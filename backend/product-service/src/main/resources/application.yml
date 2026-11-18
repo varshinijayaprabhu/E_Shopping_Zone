@@ -36,10 +36,16 @@ eureka:
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${server.port}:${random.value}
 
+internal:
+  service:
+    secret: ${INTERNAL_SERVICE_SECRET:ESHOPPING_INTERNAL_SECRET_2026}
+
 eshopping:
   security:
     jwt:
       secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+  internal:
+    secret-key: ${INTERNAL_SERVICE_SECRET:ESHOPPING_INTERNAL_SECRET_2026}
 
 springdoc:
   api-docs:

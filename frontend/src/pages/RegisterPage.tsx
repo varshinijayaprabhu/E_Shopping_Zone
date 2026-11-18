@@ -17,7 +17,6 @@ export const RegisterPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -45,25 +44,28 @@ export const RegisterPage: React.FC = () => {
         showSuccess('Account created successfully! Welcome to E-ShoppingZone.');
         navigate('/');
       } else {
-        if (!inviteCode.trim()) {
-          showError('Merchant invite code is required to register as a merchant.');
-          setIsLoading(false);
-          return;
-        }
-
         await registerMerchant({
           fullName: fullName.trim(),
           email: email.trim(),
           password,
           phone: phone.trim() || undefined,
-          inviteCode: inviteCode.trim(),
         });
-        showSuccess('Merchant account created successfully! Welcome to your Merchant Portal.');
-        navigate('/merchant');
+        showSuccess('Merchant application submitted! Your account is pending Administrator review and approval before you can log in.');
+        navigate('/login');
       }
     } catch (err: unknown) {
-      const errorResponse = err as { response?: { data?: { message?: string } }; message?: string };
-      showError(errorResponse.response?.data?.message || 'Registration failed.');
+      const errorResponse = err as {
+        response?: {
+          data?: {
+            message?: string;
+            fieldErrors?: Array<{ field: string; message: string }>;
+          };
+        };
+        message?: string;
+      };
+      const fieldError = errorResponse.response?.data?.fieldErrors?.[0]?.message;
+      const mainMessage = errorResponse.response?.data?.message;
+      showError(fieldError || mainMessage || 'Registration failed.');
     } finally {
       setIsLoading(false);
     }
@@ -162,11 +164,14 @@ export const RegisterPage: React.FC = () => {
                   minLength={8}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min 8 characters"
+                  placeholder="Min 8 characters (e.g. Pass1234!)"
                   className="w-full pl-9 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
               </div>
+              <p className="mt-1 text-[11px] text-slate-500 leading-tight">
+                Must contain at least 8 characters with 1 uppercase, 1 lowercase, 1 number, and 1 special symbol (@$!%*?&amp;.#^+-_).
+              </p>
             </div>
 
             <div>
@@ -186,23 +191,15 @@ export const RegisterPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Merchant Invite Code Field (only in Merchant tab) */}
+            {/* Merchant Governance Info Card */}
             {activeTab === 'MERCHANT' && (
-              <div>
-                <label htmlFor="regInviteCodeInput" className="block text-xs font-semibold text-slate-700 mb-1">
-                  Merchant Provisioning Invite Code *
-                </label>
-                <div className="relative">
-                  <input
-                    id="regInviteCodeInput"
-                    type="text"
-                    required
-                    value={inviteCode}
-                    onChange={(e) => setInviteCode(e.target.value)}
-                    placeholder="Enter merchant secret invite code"
-                    className="w-full pl-9 pr-4 py-2.5 text-xs bg-amber-50/50 border border-amber-300 rounded-xl font-mono text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                  <KeyRound className="w-4 h-4 text-amber-500 absolute left-3 top-3 pointer-events-none" />
+              <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-start gap-2.5">
+                <Store className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="space-y-0.5">
+                  <p className="font-bold text-[11px] text-amber-900">Merchant Review &amp; Approval Process</p>
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    To maintain marketplace quality and prevent fraud, new merchant accounts are submitted for Administrator review. You will be activated once approved.
+                  </p>
                 </div>
               </div>
             )}

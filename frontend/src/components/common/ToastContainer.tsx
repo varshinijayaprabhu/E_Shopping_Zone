@@ -10,7 +10,7 @@ export const ToastContainer: React.FC = () => {
   return (
     <div
       aria-live="assertive"
-      className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"
+      className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 max-w-sm w-full pointer-events-none"
     >
       {toasts.map((toast) => {
         let bg = 'bg-white border-slate-200 text-slate-800';

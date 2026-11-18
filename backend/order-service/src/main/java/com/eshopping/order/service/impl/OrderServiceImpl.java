@@ -269,7 +269,7 @@ public class OrderServiceImpl implements OrderService {
 
     private MerchantOrderItemDTO mapToMerchantOrderItemDTO(OrderItem item) {
         Order o = item.getOrder();
-        return new MerchantOrderItemDTO(
+        MerchantOrderItemDTO dto = new MerchantOrderItemDTO(
                 item.getId(),
                 o.getOrderNumber(),
                 o.getOrderStatus(),
@@ -284,6 +284,8 @@ public class OrderServiceImpl implements OrderService {
                 o.getShippingPhone(),
                 o.getShippingAddress()
         );
+        dto.setOrderId(o.getId());
+        return dto;
     }
 
     @Override
@@ -305,6 +307,17 @@ public class OrderServiceImpl implements OrderService {
         order.setOrderStatus(OrderStatus.valueOf(status.toUpperCase()));
         Order savedOrder = orderRepository.save(order);
         log.info("Order {} status updated to {}", order.getOrderNumber(), status);
+        return mapToOrderDTO(savedOrder);
+    }
+
+    @Override
+    @Transactional
+    public OrderDTO updateOrderStatusByNumber(String orderNumber, String status) {
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with number: " + orderNumber));
+        order.setOrderStatus(OrderStatus.valueOf(status.toUpperCase()));
+        Order savedOrder = orderRepository.save(order);
+        log.info("Order {} status updated to {}", orderNumber, status);
         return mapToOrderDTO(savedOrder);
     }
 

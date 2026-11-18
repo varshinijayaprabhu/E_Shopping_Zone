@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ShoppingCart, Package } from 'lucide-react';
 import { Product } from '../../types';
 import { formatCurrency } from '../../utils/formatters';
+import { resolveImageUrl } from '../../utils/imageUrl';
 import { useCart } from '../../context/CartContext';
 
 interface ProductCardProps {
@@ -32,10 +33,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   return (
     <div className="group bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col h-full">
       <Link to={`/products/${product.id}`} className="relative block overflow-hidden bg-slate-100 aspect-4/3">
-        {product.imageUrl && !imageError ? (
+        {resolveImageUrl(product.imageUrl) && !imageError ? (
           <img
-            src={product.imageUrl}
+            src={resolveImageUrl(product.imageUrl)}
             alt={product.name}
+            referrerPolicy="no-referrer"
             onError={() => setImageError(true)}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             loading="lazy"

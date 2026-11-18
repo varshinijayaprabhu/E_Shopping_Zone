@@ -28,7 +28,15 @@ export const LoginPage: React.FC = () => {
     try {
       const auth = await login(email.trim(), password);
       showSuccess(`Welcome back, ${auth.user.fullName || auth.user.email}!`);
-      navigate(from, { replace: true });
+      
+      const roles = auth.user.roles || [];
+      if (roles.includes('ROLE_ADMIN')) {
+        navigate('/admin', { replace: true });
+      } else if (roles.includes('ROLE_MERCHANT')) {
+        navigate('/merchant', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
     } catch (err: unknown) {
       const errorResponse = err as { response?: { data?: { message?: string } }; message?: string };
       showError(errorResponse.response?.data?.message || 'Invalid email or password.');
@@ -39,7 +47,7 @@ export const LoginPage: React.FC = () => {
 
   const handleQuickFill = (demoEmail: string) => {
     setEmail(demoEmail);
-    setPassword('Password123!');
+    setPassword('Pass1234!');
   };
 
   const handleGitHubLogin = () => {
@@ -77,16 +85,16 @@ export const LoginPage: React.FC = () => {
               onClick={() => handleQuickFill('alice@eshopping.com')}
               className="py-1.5 px-2 bg-white rounded-xl text-left border border-indigo-200 hover:border-indigo-400 transition-colors shadow-2xs"
             >
-              <span className="block text-[11px] font-bold text-slate-900">Alice (Customer)</span>
-              <span className="block text-[10px] text-slate-500">alice@eshopping.com</span>
+              <span className="block text-[11px] font-bold text-slate-900">Alice (Buyer)</span>
+              <span className="block text-[10px] text-slate-500 truncate">alice@eshopping.com</span>
             </button>
             <button
               type="button"
               onClick={() => handleQuickFill('bob@eshopping.com')}
               className="py-1.5 px-2 bg-white rounded-xl text-left border border-indigo-200 hover:border-indigo-400 transition-colors shadow-2xs"
             >
-              <span className="block text-[11px] font-bold text-slate-900">Bob (Merchant)</span>
-              <span className="block text-[10px] text-slate-500">bob@eshopping.com</span>
+              <span className="block text-[11px] font-bold text-slate-900">Bob (Seller)</span>
+              <span className="block text-[10px] text-slate-500 truncate">bob@eshopping.com</span>
             </button>
           </div>
         </div>

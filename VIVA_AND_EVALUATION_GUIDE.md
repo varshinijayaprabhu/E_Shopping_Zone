@@ -53,10 +53,10 @@ The **API Gateway** (`api-gateway`) is the single ingress edge service for the e
 │  4. Dynamic Eureka Resolution & Round-Robin Load Balancing  │
 └──────────────────────────────┬──────────────────────────────┘
                                │
-       ┌───────────────────────┼───────────────────────┐
-       ▼ (lb://)               ▼ (lb://)               ▼ (lb://)
-Profile Service         Product Service          Order Service
-  (Port 8081)             (Port 8082)             (Port 8085)
+       ┌───────────────────────┼───────────────────────┬───────────────────────┐
+       ▼ (lb://)               ▼ (lb://)               ▼ (lb://)               ▼ (lb://)
+Profile Service         Product Service          Order Service           Admin Service
+  (Port 8081)             (Port 8082)             (Port 8085)             (Port 8086)
 ```
 
 ### Why Spring Cloud Gateway instead of Netflix Zuul?
@@ -103,6 +103,14 @@ spring:
           uri: lb://WALLET-SERVICE
           predicates:
             - Path=/api/wallet/**
+        - id: admin-service-admin
+          uri: lb://ADMIN-SERVICE
+          predicates:
+            - Path=/api/admin/**
+        - id: admin-service-disputes
+          uri: lb://ADMIN-SERVICE
+          predicates:
+            - Path=/api/disputes/**
 ```
 
 ### Key Gateway Code Components:
@@ -130,6 +138,7 @@ spring:
 | **`cart-service`** | `8083` | `eshopping_cart` | Persistent cart items, quantity modification, live price sync with `product-service`, auto-clear on checkout. |
 | **`wallet-service`** | `8084` | `eshopping_wallet` | Customer digital balance, deposit funds, checkout payment under pessimistic row lock, Saga compensating refunds, immutable transaction ledger. |
 | **`order-service`** | `8085` | `eshopping_order` | Order history, merchant sales items, historical price/title snapshots, **Checkout Saga Orchestrator**. |
+| **`admin-service`** | `8086` | `eshopping_admin` | Multi-service governance, merchant verification & freeze gates, dispute SLA automated countdown & admin override refunds, immutable audit logs. |
 
 ---
 
@@ -345,6 +354,61 @@ PRODUCT-SERVICE     WALLET-SERVICE       CART-SERVICE
 > - If the merchant **accepts** the dispute, a compensating refund is automatically triggered.
 > - If the merchant **rejects** or if the 2-minute SLA expires without a merchant response, a Spring `@Scheduled` background worker (`DisputeSlaScheduler`, polling every 15 seconds) automatically transitions the status to `ESCALATED_TO_ADMIN`.
 > - The administrator reviews the ticket in the Admin Portal and can execute an administrative refund override. This invokes `order-service`'s Saga compensation endpoint (`/api/orders/internal/{id}/dispute-refund`), which refunds the customer's digital wallet via `wallet-service`, restores catalog inventory via `product-service`, updates order status to `REFUNDED_BY_ADMIN`, and logs an immutable audit entry in `admin_audit_logs`."*
+
+### Q15: Should an Administrator Dashboard display microservice internals (ports, database schemas), and why did you keep them separated?
+> **Answer**: *"No. Displaying low-level engineering details like TCP ports (`:8081`, `:8086`) and private database names (`profile_db`, `admin_db`) in a business administrative portal is a common design flaw that violates two fundamental principles:
+> 1. **Persona Separation & Principle of Least Privilege**: A platform administrator is a business operations manager responsible for merchant governance, dispute resolution, and platform revenue. They do not manage server ports or database schemas. Exposing internal infrastructure confuses business operations with DevOps.
+> 2. **Security & Information Disclosure (OWASP CWE-200)**: Exposing internal topologies, database schema names, and port bindings on a web UI leaks architectural blueprints. If an administrative session is observed or intercepted, an attacker gains exact reconnaissance data about internal systems.
+> For these reasons, our Admin Portal strictly focuses on business operations (Merchant Approval/Suspension, Dispute SLAs, and Audit Logs). Evaluators and engineers inspect Eureka Service Registry (`http://localhost:8761`), Spring Boot Actuator (`/actuator/health`), or MySQL Workbench to verify database-per-service isolation."*
+
+### Q16: How does the system handle observability and health monitoring in microservices without exposing infrastructure to business users?
+> **Answer**: *"Observability is decoupled from business UI workflows and handled at the infrastructure tier:
+> 1. **Service Discovery & Liveness**: The Eureka Service Registry (`discovery-server` on port `8761`) tracks dynamic instances and heartbeats every 30 seconds.
+> 2. **Production Observability Stack**: Rather than hardcoding technical status cards into application pages, microservices expose standard Spring Boot Actuator endpoints (`/actuator/health`, `/actuator/metrics`, `/actuator/prometheus`). In production, an observability agent (Prometheus) scrapes these metrics and displays them on dedicated Grafana or Datadog operations dashboards with automated alerts.
+> 3. **Distributed Request Tracing**: The API Gateway injects an `X-Correlation-Id` header into incoming requests. If an order fails, developers trace the single correlation ID across SLF4J logs without needing a UI widget."*
+
+### Q17: Why do Customer registrations activate immediately while Merchant registrations require Administrator approval?
+> **Answer**: *"This design follows the real-world **Two-Sided Marketplace Risk and Trust Model** (similar to Amazon or Flipkart):
+> 1. **Frictionless Buyer Onboarding**: Customers only browse and spend money. Imposing an administrator approval gate or complex verification on buyers creates friction, causing severe drop-offs in checkout conversion rates (studies show >70% abandonment). Therefore, customers are provisioned with `enabled = true` and issued active JWT tokens immediately upon registration.
+> 2. **Seller Governance & Fraud Prevention (KYC)**: Merchants possess elevated platform privileges—they publish product listings, handle pricing, collect sales revenue, and manage customer disputes. If any anonymous user could self-register as an active merchant, malicious actors could flood the marketplace with counterfeit products, fraudulent listings, or abusive pricing schemes.
+> 3. **Implementation**: In `profile-service`, merchant accounts are saved with `enabled = false` ('Pending Approval') and no JWT session is issued. If a pending or suspended merchant attempts to log in, `AuthServiceImpl` intercepts the attempt and returns a `403 Forbidden` with the message: *'Merchant account is pending administrator approval or suspended.'* The platform administrator reviews new merchant applications on the Admin Portal and toggles their active status, recording the action in `admin_audit_logs`."*
+
+### Q18: What is Privilege Escalation in web security, and why is an Admin Approval workflow superior to a shared secret invite code?
+> **Answer**: *"**Privilege Escalation** (OWASP Top 10 - Broken Access Control / CWE-269) occurs when an attacker obtains permissions or roles assigned to higher-privilege users. 
+> Initially, some demo applications use a client-side 'Merchant Invite Code' (e.g., `ESHOPPING_MERCHANT_INVITE_2026`). In real-world security, this is a major anti-pattern because:
+> - The invite key acts as a static **Pre-Shared Key (PSK)**. If included in frontend source code, client documentation, or leaked in an email, any customer can input the key and self-elevate their privileges from `ROLE_CUSTOMER` to `ROLE_MERCHANT`.
+> - Static keys cannot be easily revoked per user and lack attribution (you cannot know who leaked the code).
+> 
+> In contrast, our **Admin Approval Workflow** enforces **Zero-Trust Role Governance**:
+> - Registration only captures the user's intent to sell.
+> - The assignment of active seller privileges requires a cryptographic `ROLE_ADMIN` JWT, audited human review, and a state transition (`enabled = true`) in the database.
+> - Every status toggle produces an immutable record in `admin_audit_logs` with the administrator's ID, timestamp, target merchant email, and IP address, ensuring non-repudiation."*
+
+### Q19: How do you handle input validation and display granular field constraint errors across Spring Boot and React?
+> **Answer**: *"We implement end-to-end declarative validation using Java Bean Validation (`javax.validation` / `jakarta.validation`) and a centralized error handling architecture:
+> 1. **Backend DTO Constraints**: On `CustomerRegisterRequestDTO` and `MerchantRegisterRequestDTO`, we define annotations such as `@NotBlank`, `@Email`, and custom regex `@Pattern` (e.g., requiring passwords to have at least 8 characters, an uppercase letter, a lowercase letter, a digit, and a special character including `@$!%*?&.#^+-_`).
+> 2. **Controller Validation Trigger**: Controllers annotate request bodies with `@Valid`. If constraints fail, Spring interrupts execution before business logic runs and throws `MethodArgumentNotValidException`.
+> 3. **Global Exception Advice (`@RestControllerAdvice`)**: In `GlobalExceptionHandler.java`, we intercept `MethodArgumentNotValidException`, iterate through `BindingResult.getFieldErrors()`, and build a structured error response map:
+>    ```json
+>    {
+>      \"success\": false,
+>      \"message\": \"One or more validation constraints failed\",
+>      \"fieldErrors\": {
+>        \"password\": \"Password must be at least 8 characters and include uppercase, lowercase, digit, and special character\"
+>      }
+>    }
+>    ```
+> 4. **Frontend Toast & Helper Text**: The React frontend Axios response interceptor extracts the `fieldErrors` map from the 400 Bad Request response. Instead of showing a vague toast, it highlights the exact offending input field and displays clear guidance so the user knows precisely which requirement failed."*
+
+### Q20: How does `admin-service` maintain Database-per-Service isolation when aggregating platform metrics and merchant governance data?
+> **Answer**: *"In a monolithic system, an admin dashboard typically executes cross-table SQL joins (e.g., `SELECT * FROM users u JOIN orders o ON ...`). However, in our microservices architecture, `admin-service` adheres strictly to the **Database-per-Service pattern**:
+> - `admin-service` owns and connects **only** to `admin_db`. It possesses zero database credentials or network access to `profile_db` or `order_db`.
+> - **API Composition Pattern**: To aggregate metrics ('Big Numbers') and render the Merchant Governance table, `admin-service` acts as an API composer. It uses a `@LoadBalanced RestTemplate` to make synchronous internal REST calls to:
+>   - `profile-service` (`/api/profile/internal/merchants` and `/api/profile/internal/user-counts`) for seller lists and customer/merchant counts.
+>   - `order-service` (`/api/orders/internal/stats`) for platform-wide gross revenue and total fulfilled orders.
+> - **Zero Direct SQL Coupling**: If `profile-service` migrates its database schema from MySQL to PostgreSQL or MongoDB, `admin-service` remains completely unaffected as long as the REST DTO contract remains stable.
+> - **Security of Internal Endpoints**: Internal endpoints are shielded from public access via Spring Cloud Gateway route predicates and protected by internal secret headers (`X-Internal-Secret`), preventing unauthorized external access."*
+
 
 
 

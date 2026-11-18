@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Save, Package } from 'lucide-react';
+import { ArrowLeft, Save, Package, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 import { productApi } from '../../api/productApi';
 import { Category, ProductCreatePayload, ProductUpdatePayload } from '../../types';
 import { useNotification } from '../../context/NotificationContext';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+import { resolveImageUrl, SAMPLE_PRODUCT_IMAGES } from '../../utils/imageUrl';
 
 export const MerchantProductFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -20,11 +21,20 @@ export const MerchantProductFormPage: React.FC = () => {
   const [name, setName] = useState('');
   const [sku, setSku] = useState('');
   const [categoryId, setCategoryId] = useState<number>(1);
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
+  const [customCategoryName, setCustomCategoryName] = useState('');
   const [price, setPrice] = useState<string>('999.00');
   const [stock, setStock] = useState<string>('25');
   const [imageUrl, setImageUrl] = useState('');
+  const [previewError, setPreviewError] = useState(false);
   const [description, setDescription] = useState('');
   const [active, setActive] = useState(true);
+
+  const handleImageUrlChange = (val: string) => {
+    const resolved = resolveImageUrl(val);
+    setImageUrl(resolved);
+    setPreviewError(false);
+  };
 
   useEffect(() => {
     // Load categories
@@ -79,13 +89,52 @@ export const MerchantProductFormPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
+      let finalCategoryId = categoryId;
+
+      if (isCustomCategory) {
+        const trimmed = customCategoryName.trim();
+        if (!trimmed) {
+          setIsSubmitting(false);
+          return showError('Custom category name is required');
+        }
+
+        const existing = categories.find(
+          (c) => c.name.toLowerCase() === trimmed.toLowerCase()
+        );
+
+        if (existing) {
+          finalCategoryId = existing.id;
+        } else {
+          const slug = trimmed
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)/g, '');
+
+          const catRes = await productApi.createCategory({
+            name: trimmed,
+            slug,
+            description: `${trimmed} category`,
+          });
+
+          if (catRes.success && catRes.data) {
+            finalCategoryId = catRes.data.id;
+            setCategories((prev) => [...prev, catRes.data]);
+          } else {
+            setIsSubmitting(false);
+            return showError(catRes.message || 'Failed to create category');
+          }
+        }
+      }
+
+      const cleanImageUrl = resolveImageUrl(imageUrl.trim());
+
       if (isEdit && id) {
         const updatePayload: ProductUpdatePayload = {
-          categoryId,
+          categoryId: finalCategoryId,
           name: name.trim(),
           description: description.trim(),
           price: numPrice,
-          imageUrl: imageUrl.trim(),
+          imageUrl: cleanImageUrl,
           availableStock: numStock,
           active,
         };
@@ -98,12 +147,12 @@ export const MerchantProductFormPage: React.FC = () => {
         }
       } else {
         const createPayload: ProductCreatePayload = {
-          categoryId,
+          categoryId: finalCategoryId,
           name: name.trim(),
           sku: sku.trim().toUpperCase(),
           description: description.trim(),
           price: numPrice,
-          imageUrl: imageUrl.trim(),
+          imageUrl: cleanImageUrl,
           initialStock: numStock,
         };
         const res = await productApi.createProduct(createPayload);
@@ -115,8 +164,21 @@ export const MerchantProductFormPage: React.FC = () => {
         }
       }
     } catch (err: unknown) {
-      const errorResponse = err as { response?: { data?: { message?: string } }; message?: string };
-      showError(errorResponse.response?.data?.message || 'Operation failed');
+      const errorResponse = err as {
+        response?: {
+          data?: {
+            message?: string;
+            fieldErrors?: Array<{ field: string; message: string }>;
+          };
+        };
+        message?: string;
+      };
+      const fieldErrors = errorResponse.response?.data?.fieldErrors;
+      if (fieldErrors && Array.isArray(fieldErrors) && fieldErrors.length > 0) {
+        showError(fieldErrors.map((fe) => `${fe.field}: ${fe.message}`).join(', '));
+      } else {
+        showError(errorResponse.response?.data?.message || errorResponse.message || 'Operation failed');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -184,21 +246,55 @@ export const MerchantProductFormPage: React.FC = () => {
           </div>
 
           <div>
-            <label htmlFor="productCategorySelect" className="block text-xs font-semibold text-slate-700 mb-1">
-              Category *
-            </label>
-            <select
-              id="productCategorySelect"
-              value={categoryId}
-              onChange={(e) => setCategoryId(Number(e.target.value))}
-              className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="productCategorySelect" className="block text-xs font-semibold text-slate-700">
+                Category *
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCustomCategory(!isCustomCategory);
+                  if (isCustomCategory) {
+                    setCustomCategoryName('');
+                  }
+                }}
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition"
+              >
+                {isCustomCategory ? '← Choose from List' : '+ Type Custom Category'}
+              </button>
+            </div>
+
+            {isCustomCategory ? (
+              <input
+                id="customCategoryInput"
+                type="text"
+                required
+                value={customCategoryName}
+                onChange={(e) => setCustomCategoryName(e.target.value)}
+                placeholder="e.g. Watches, Gaming, Footwear"
+                className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            ) : (
+              <select
+                id="productCategorySelect"
+                value={categoryId}
+                onChange={(e) => {
+                  if (e.target.value === '__NEW__') {
+                    setIsCustomCategory(true);
+                  } else {
+                    setCategoryId(Number(e.target.value));
+                  }
+                }}
+                className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+                <option value="__NEW__">+ Type Custom Category...</option>
+              </select>
+            )}
           </div>
 
           <div>
@@ -234,18 +330,74 @@ export const MerchantProductFormPage: React.FC = () => {
             />
           </div>
 
-          <div className="sm:col-span-2">
-            <label htmlFor="productImageUrlInput" className="block text-xs font-semibold text-slate-700 mb-1">
-              Image URL
-            </label>
+          <div className="sm:col-span-2 space-y-2">
+            <div className="flex items-center justify-between">
+              <label htmlFor="productImageUrlInput" className="block text-xs font-semibold text-slate-700">
+                Image URL
+              </label>
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Quick samples:</span>
+                {SAMPLE_PRODUCT_IMAGES.map((sample) => (
+                  <button
+                    key={sample.name}
+                    type="button"
+                    onClick={() => handleImageUrlChange(sample.url)}
+                    className="px-2 py-0.5 text-[10px] font-medium bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 rounded-md transition-colors"
+                  >
+                    {sample.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <input
               id="productImageUrlInput"
-              type="url"
+              type="text"
               value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
+              onChange={(e) => handleImageUrlChange(e.target.value)}
               placeholder="https://images.unsplash.com/photo-..."
               className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
+
+            <p className="text-[11px] text-slate-500">
+              Provide a direct image URL (Unsplash, CDN, or web image). Can be left blank for default placeholder.
+            </p>
+
+            {/* Live Image Preview */}
+            {imageUrl.trim() && (
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-3.5">
+                <div className="w-16 h-16 rounded-lg bg-white border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-2xs">
+                  {!previewError ? (
+                    <img
+                      src={imageUrl.trim()}
+                      alt="Preview"
+                      referrerPolicy="no-referrer"
+                      onError={() => setPreviewError(true)}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Package className="w-7 h-7 text-slate-300" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  {!previewError ? (
+                    <p className="text-xs font-semibold text-emerald-600 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4" /> Live Image Preview Loaded
+                    </p>
+                  ) : (
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-rose-600 flex items-center gap-1.5">
+                        <AlertCircle className="w-4 h-4" /> Image cannot be displayed
+                      </p>
+                      <p className="text-[11px] text-slate-500 leading-relaxed">
+                        Tip: If finding pictures on Google or Bing, right-click the image and choose <strong>"Copy image address"</strong> (not the browser page URL), or click one of the quick samples above.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="sm:col-span-2">

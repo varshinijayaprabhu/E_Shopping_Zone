@@ -65,6 +65,11 @@ export const productApi = {
     return res.data;
   },
 
+  createCategory: async (payload: { name: string; slug: string; description?: string; imageUrl?: string }): Promise<ApiResponse<Category>> => {
+    const res = await axiosClient.post<ApiResponse<Category>>('/api/categories', payload);
+    return res.data;
+  },
+
   getMerchantProducts: async (page = 0, size = 10): Promise<ApiResponse<PaginatedResponse<Product>>> => {
     const res = await axiosClient.get<any>('/api/products/merchant', {
       params: { page, size },

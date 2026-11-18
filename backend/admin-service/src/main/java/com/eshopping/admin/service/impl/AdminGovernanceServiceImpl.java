@@ -82,6 +82,12 @@ public class AdminGovernanceServiceImpl implements AdminGovernanceService {
     @Override
     @Transactional
     public void updateMerchantStatus(Long adminId, Long merchantId, boolean enabled, String reason, String ipAddress) {
+        updateMerchantStatus(adminId, "admin@eshopping.com", merchantId, enabled, reason, ipAddress);
+    }
+
+    @Override
+    @Transactional
+    public void updateMerchantStatus(Long adminId, String adminEmail, Long merchantId, boolean enabled, String reason, String ipAddress) {
         profileServiceClient.updateMerchantStatus(merchantId, enabled);
 
         String actionType = enabled ? "MERCHANT_APPROVE" : "MERCHANT_SUSPEND";
@@ -89,8 +95,11 @@ public class AdminGovernanceServiceImpl implements AdminGovernanceService {
                 ? reason
                 : (enabled ? "Merchant account approved by admin" : "Merchant account suspended by admin");
 
+        String effectiveEmail = (adminEmail != null && !adminEmail.trim().isEmpty()) ? adminEmail : "admin@eshopping.com";
+
         AdminAuditLog auditLog = new AdminAuditLog(
                 adminId,
+                effectiveEmail,
                 actionType,
                 "MERCHANT",
                 merchantId,
@@ -99,7 +108,7 @@ public class AdminGovernanceServiceImpl implements AdminGovernanceService {
                 ipAddress
         );
         auditLogRepository.save(auditLog);
-        log.info("Admin {} updated merchant {} status to enabled={} (Reason: {})", adminId, merchantId, enabled, auditReason);
+        log.info("Admin {} ({}) updated merchant {} status to enabled={} (Reason: {})", adminId, effectiveEmail, merchantId, enabled, auditReason);
     }
 
     @Override
@@ -171,6 +180,12 @@ public class AdminGovernanceServiceImpl implements AdminGovernanceService {
     @Override
     @Transactional
     public DisputeResponseDTO adminResolveDispute(Long adminId, Long disputeId, DisputeAdminResolveRequestDTO request, String ipAddress) {
+        return adminResolveDispute(adminId, "admin@eshopping.com", disputeId, request, ipAddress);
+    }
+
+    @Override
+    @Transactional
+    public DisputeResponseDTO adminResolveDispute(Long adminId, String adminEmail, Long disputeId, DisputeAdminResolveRequestDTO request, String ipAddress) {
         DisputeTicket ticket = disputeTicketRepository.findById(disputeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Dispute ticket not found with id: " + disputeId));
 
@@ -185,16 +200,18 @@ public class AdminGovernanceServiceImpl implements AdminGovernanceService {
         if ("REFUND".equals(action)) {
             ticket.setStatus(DisputeStatus.REFUNDED_BY_ADMIN);
             orderServiceClient.adminDisputeRefund(ticket.getOrderId(), "Admin dispute resolution: " + request.getAdminNotes());
-            log.info("Admin {} approved refund for dispute #{}, order {}", adminId, disputeId, ticket.getOrderId());
+            log.info("Admin {} ({}) approved refund for dispute #{}, order {}", adminId, adminEmail, disputeId, ticket.getOrderId());
         } else {
             ticket.setStatus(DisputeStatus.RESOLVED_NO_REFUND);
-            log.info("Admin {} closed dispute #{} with NO refund", adminId, disputeId);
+            log.info("Admin {} ({}) closed dispute #{} with NO refund", adminId, adminEmail, disputeId);
         }
 
         DisputeTicket saved = disputeTicketRepository.save(ticket);
 
+        String effectiveEmail = (adminEmail != null && !adminEmail.trim().isEmpty()) ? adminEmail : "admin@eshopping.com";
         AdminAuditLog auditLog = new AdminAuditLog(
                 adminId,
+                effectiveEmail,
                 "DISPUTE_RESOLUTION_OVERRIDE",
                 "DISPUTE",
                 disputeId,
@@ -291,6 +308,7 @@ public class AdminGovernanceServiceImpl implements AdminGovernanceService {
         return new AdminAuditLogDTO(
                 a.getId(),
                 a.getAdminId(),
+                a.getAdminEmail(),
                 a.getActionType(),
                 a.getTargetEntityType(),
                 a.getTargetEntityId(),

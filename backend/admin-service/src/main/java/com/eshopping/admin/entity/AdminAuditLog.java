@@ -25,6 +25,9 @@ public class AdminAuditLog {
     @Column(name = "admin_id", nullable = false)
     private Long adminId;
 
+    @Column(name = "admin_email", length = 100)
+    private String adminEmail = "admin@eshopping.com";
+
     @Column(name = "action_type", nullable = false, length = 50)
     private String actionType;
 
@@ -52,7 +55,13 @@ public class AdminAuditLog {
 
     public AdminAuditLog(Long adminId, String actionType, String targetEntityType, Long targetEntityId,
                          String reason, String metadata, String ipAddress) {
+        this(adminId, "admin@eshopping.com", actionType, targetEntityType, targetEntityId, reason, metadata, ipAddress);
+    }
+
+    public AdminAuditLog(Long adminId, String adminEmail, String actionType, String targetEntityType, Long targetEntityId,
+                         String reason, String metadata, String ipAddress) {
         this.adminId = adminId;
+        this.adminEmail = (adminEmail != null && !adminEmail.trim().isEmpty()) ? adminEmail : "admin@eshopping.com";
         this.actionType = actionType;
         this.targetEntityType = targetEntityType;
         this.targetEntityId = targetEntityId;
@@ -75,6 +84,14 @@ public class AdminAuditLog {
 
     public void setAdminId(Long adminId) {
         this.adminId = adminId;
+    }
+
+    public String getAdminEmail() {
+        return adminEmail;
+    }
+
+    public void setAdminEmail(String adminEmail) {
+        this.adminEmail = adminEmail;
     }
 
     public String getActionType() {

@@ -12,7 +12,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<AuthResponse>;
   registerCustomer: (payload: { fullName: string; email: string; password: string; phone?: string }) => Promise<User>;
-  registerMerchant: (payload: { fullName: string; email: string; password: string; phone?: string; inviteCode: string }) => Promise<User>;
+  registerMerchant: (payload: { fullName: string; email: string; password: string; phone?: string; inviteCode?: string }) => Promise<User>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   setAuthSession: (user: User, accessToken: string) => void;
@@ -114,7 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     email: string;
     password: string;
     phone?: string;
-    inviteCode: string;
+    inviteCode?: string;
   }): Promise<User> => {
     setIsLoading(true);
     try {
