@@ -1,6 +1,8 @@
 package com.eshopping.profile.controller;
 
 import com.eshopping.profile.dto.*;
+import com.eshopping.profile.entity.User;
+import com.eshopping.profile.security.CustomUserDetails;
 import com.eshopping.profile.service.AuthService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
@@ -19,6 +21,7 @@ import java.util.Collections;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -137,6 +140,73 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").value("exchanged_jwt_token"))
                 .andExpect(jsonPath("$.user.email").value("oauth_user@example.com"));
+    }
+
+    @Test
+    @DisplayName("POST /api/auth/register-merchant: Valid request returns 201 Created")
+    void testRegisterMerchant_Valid() throws Exception {
+        MerchantRegisterRequestDTO request = new MerchantRegisterRequestDTO(
+                "merchant.corp@example.com", "Password@123", "Merchant Corp", "+91-9876543211"
+        );
+
+        AuthResponseDTO.UserSummary summary = new AuthResponseDTO.UserSummary(
+                3L, "merchant.corp@example.com", "Merchant Corp", Collections.singleton("ROLE_MERCHANT")
+        );
+        AuthResponseDTO responseDTO = new AuthResponseDTO("merchant_jwt", 900L, summary);
+
+        when(authService.registerMerchant(any(), any(), any(), any())).thenReturn(responseDTO);
+
+        mockMvc.perform(post("/api/auth/register-merchant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.accessToken").value("merchant_jwt"))
+                .andExpect(jsonPath("$.user.email").value("merchant.corp@example.com"));
+    }
+
+    @Test
+    @DisplayName("POST /api/auth/refresh: Missing cookie returns 401 Unauthorized")
+    void testRefresh_MissingCookie() throws Exception {
+        mockMvc.perform(post("/api/auth/refresh")
+                        .header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private CustomUserDetails createMockUserDetails(Long id, String email) {
+        User user = new User();
+        user.setId(id);
+        user.setEmail(email);
+        user.setPasswordHash("hashed_pw");
+        user.setFullName("Alice Customer");
+        user.setEnabled(true);
+        user.setRoles(Collections.singleton("ROLE_CUSTOMER"));
+        return new CustomUserDetails(user);
+    }
+
+    @Test
+    @DisplayName("POST /api/auth/logout: Successfully clears cookie and returns 200 OK")
+    void testLogout_Valid() throws Exception {
+        Cookie refreshCookie = new Cookie("eshopping_refresh_token", "sample_refresh_token");
+        CustomUserDetails userDetails = createMockUserDetails(1L, "alice@eshopping.com");
+
+        mockMvc.perform(post("/api/auth/logout")
+                        .with(user(userDetails))
+                        .header("X-Requested-With", "XMLHttpRequest")
+                        .cookie(refreshCookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Logged out successfully"));
+    }
+
+    @Test
+    @DisplayName("POST /api/auth/logout-all: Returns 200 OK")
+    void testLogoutAll_Valid() throws Exception {
+        CustomUserDetails userDetails = createMockUserDetails(1L, "alice@eshopping.com");
+
+        mockMvc.perform(post("/api/auth/logout-all")
+                        .with(user(userDetails))
+                        .header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("All user sessions invalidated successfully"));
     }
 }
 

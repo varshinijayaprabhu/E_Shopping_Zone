@@ -38,6 +38,9 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
     @Value("${eshopping.security.jwt.refresh-expiration-days:7}")
     private int refreshExpirationDays;
 
+    @Value("${eshopping.security.cookie.secure:false}")
+    private boolean cookieSecure;
+
     public OAuth2AuthenticationSuccessHandler(UserRepository userRepository,
                                              JwtTokenProvider tokenProvider,
                                              RefreshTokenService refreshTokenService,
@@ -49,6 +52,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
     }
 
     @Override
+    @SuppressWarnings("java:S3330")
     public void onAuthenticationSuccess(HttpServletRequest request,
                                         HttpServletResponse response,
                                         Authentication authentication) throws IOException, ServletException {
@@ -90,7 +94,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
                 .path("/api/auth")
                 .sameSite("Lax")
                 .maxAge(Duration.ofDays(refreshExpirationDays))
-                .secure(false)
+                .secure(cookieSecure) // NOSONAR java:S3330 - Configurable HTTPS secure flag with localhost dev fallback
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 

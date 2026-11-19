@@ -36,6 +36,12 @@ eureka:
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${server.port}:${random.value}
 
+razorpay:
+  key-id: ${RAZORPAY_KEY_ID:rzp_test_5yq4Y3m9x12AbC}
+  key-secret: ${RAZORPAY_KEY_SECRET:secret_mock_rzp_2026_test}
+  currency: INR
+  company-name: E-ShoppingZone Wallet
+
 internal:
   service:
     secret: ${INTERNAL_SERVICE_SECRET:ESHOPPING_INTERNAL_SECRET_2026}

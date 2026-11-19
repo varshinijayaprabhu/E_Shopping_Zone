@@ -14,13 +14,15 @@ INSERT INTO users (id, email, password_hash, full_name, phone_number, address_li
 VALUES 
 (1, 'customer@eshopping.com', '$2a$10$wT0l0hF2BvH7gP5T5b4KeeiWb7Y5l89C1aZp1bZ4zFqJ2cK6f0g5K', 'Alice Customer', '+91-9876543210', 'Flat 402, Green Glen Layout, Bellandur', 'Bengaluru', 'Karnataka', '560103', 'India', 'LOCAL', TRUE),
 (2, 'merchant@eshopping.com', '$2a$10$wT0l0hF2BvH7gP5T5b4KeeiWb7Y5l89C1aZp1bZ4zFqJ2cK6f0g5K', 'Bob Merchant', '+91-9876543211', 'Shop 12, Commercial Complex, MG Road', 'Bengaluru', 'Karnataka', '560001', 'India', 'LOCAL', TRUE),
-(3, 'john.doe@eshopping.com', '$2a$10$wT0l0hF2BvH7gP5T5b4KeeiWb7Y5l89C1aZp1bZ4zFqJ2cK6f0g5K', 'John Doe', '+91-9876543212', '104 High Street', 'Mumbai', 'Maharashtra', '400001', 'India', 'LOCAL', TRUE)
+(3, 'john.doe@eshopping.com', '$2a$10$wT0l0hF2BvH7gP5T5b4KeeiWb7Y5l89C1aZp1bZ4zFqJ2cK6f0g5K', 'John Doe', '+91-9876543212', '104 High Street', 'Mumbai', 'Maharashtra', '400001', 'India', 'LOCAL', TRUE),
+(4, 'admin@eshopping.com', '$2a$10$wT0l0hF2BvH7gP5T5b4KeeiWb7Y5l89C1aZp1bZ4zFqJ2cK6f0g5K', 'System Administrator', '+91-9876543213', 'Executive Suite 1, Head Office', 'Bengaluru', 'Karnataka', '560001', 'India', 'LOCAL', TRUE)
 ON DUPLICATE KEY UPDATE full_name=VALUES(full_name);
 
 INSERT INTO user_roles (user_id, role_name) VALUES
 (1, 'ROLE_CUSTOMER'),
 (2, 'ROLE_MERCHANT'),
-(3, 'ROLE_CUSTOMER')
+(3, 'ROLE_CUSTOMER'),
+(4, 'ROLE_ADMIN')
 ON DUPLICATE KEY UPDATE role_name=VALUES(role_name);
 
 -- -----------------------------------------------------------------------------

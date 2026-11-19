@@ -4,6 +4,7 @@ import com.eshopping.order.client.ProductServiceClient;
 import com.eshopping.order.client.WalletServiceClient;
 import com.eshopping.order.dto.MerchantOrderItemDTO;
 import com.eshopping.order.dto.OrderDTO;
+import com.eshopping.order.dto.OrderMetricsSummaryDTO;
 import com.eshopping.order.dto.client.InventoryReleaseClientRequestDTO;
 import com.eshopping.order.dto.client.WalletPaymentStatusClientResponseDTO;
 import com.eshopping.order.dto.client.WalletRefundClientRequestDTO;
@@ -47,6 +48,9 @@ public class OrderServiceTest {
 
     @Mock
     private WalletServiceClient walletServiceClient;
+
+    @Mock
+    private RazorpayService razorpayService;
 
     @InjectMocks
     private OrderServiceImpl orderService;
@@ -209,6 +213,265 @@ public class OrderServiceTest {
         assertEquals(1, reconciled);
         assertEquals(SagaState.COMPLETED, stuckOrder.getSagaState());
         assertEquals(OrderStatus.PLACED, stuckOrder.getOrderStatus());
+    }
+
+    @Test
+    @DisplayName("Should reconcile stuck orders backwards when payment is not found")
+    public void testReconcilePendingSagas_PaymentNotFound() {
+        Order stuckOrder = new Order(
+                "ORD-STUCK-002",
+                "IDEMP-STUCK2",
+                1L,
+                PaymentMethod.WALLET,
+                new BigDecimal("500.00"),
+                BigDecimal.ZERO,
+                new BigDecimal("500.00"),
+                "Bob",
+                "+91-9876543210",
+                "Bangalore"
+        );
+        stuckOrder.setSagaState(SagaState.STOCK_RESERVED);
+        OrderItem item = new OrderItem(stuckOrder, 10L, 2L, "Product", new BigDecimal("500.00"), 1, new BigDecimal("500.00"));
+        stuckOrder.addOrderItem(item);
+
+        when(orderRepository.findBySagaStateIn(anyCollection())).thenReturn(Collections.singletonList(stuckOrder));
+
+        WalletPaymentStatusClientResponseDTO statusCheck = new WalletPaymentStatusClientResponseDTO();
+        WalletPaymentStatusClientResponseDTO.PaymentStatusData statusData = new WalletPaymentStatusClientResponseDTO.PaymentStatusData();
+        statusData.setFound(false);
+        statusCheck.setData(statusData);
+        when(walletServiceClient.getPaymentStatusByOrder("ORD-STUCK-002")).thenReturn(statusCheck);
+
+        int reconciled = orderService.reconcilePendingSagas();
+
+        assertEquals(1, reconciled);
+        assertEquals(SagaState.COMPENSATION_COMPLETED, stuckOrder.getSagaState());
+        assertEquals(OrderStatus.CANCELLED, stuckOrder.getOrderStatus());
+        verify(productServiceClient).releaseStock(any());
+    }
+
+    @Test
+    @DisplayName("Should return order metrics summary")
+    public void testGetMetricsSummary() {
+        when(orderRepository.count()).thenReturn(10L);
+        when(orderRepository.calculateTotalRevenue()).thenReturn(new BigDecimal("15000.00"));
+
+        OrderMetricsSummaryDTO summary = orderService.getMetricsSummary();
+
+        assertNotNull(summary);
+        assertEquals(10L, summary.getTotalOrders());
+        assertEquals(new BigDecimal("15000.00"), summary.getTotalRevenue());
+    }
+
+    @Test
+    @DisplayName("Should return zero revenue if calculateTotalRevenue returns null")
+    public void testGetMetricsSummaryNullRevenue() {
+        when(orderRepository.count()).thenReturn(0L);
+        when(orderRepository.calculateTotalRevenue()).thenReturn(null);
+
+        OrderMetricsSummaryDTO summary = orderService.getMetricsSummary();
+
+        assertNotNull(summary);
+        assertEquals(0L, summary.getTotalOrders());
+        assertEquals(BigDecimal.ZERO, summary.getTotalRevenue());
+    }
+
+    @Test
+    @DisplayName("Should update order status by ID")
+    public void testUpdateOrderStatus() {
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(sampleOrder));
+        when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
+
+        OrderDTO result = orderService.updateOrderStatus(100L, "SHIPPED");
+
+        assertNotNull(result);
+        assertEquals(OrderStatus.SHIPPED, result.getOrderStatus());
+    }
+
+    @Test
+    @DisplayName("Should throw ResourceNotFoundException when updating status for non-existent order ID")
+    public void testUpdateOrderStatusNotFound() {
+        when(orderRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> orderService.updateOrderStatus(999L, "SHIPPED"));
+    }
+
+    @Test
+    @DisplayName("Should update order status by order number")
+    public void testUpdateOrderStatusByNumber() {
+        when(orderRepository.findByOrderNumber("ORD-TEST-001")).thenReturn(Optional.of(sampleOrder));
+        when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
+
+        OrderDTO result = orderService.updateOrderStatusByNumber("ORD-TEST-001", "DELIVERED");
+
+        assertNotNull(result);
+        assertEquals(OrderStatus.DELIVERED, result.getOrderStatus());
+    }
+
+    @Test
+    @DisplayName("Should throw ResourceNotFoundException when updating status for non-existent order number")
+    public void testUpdateOrderStatusByNumberNotFound() {
+        when(orderRepository.findByOrderNumber("INVALID-ORD")).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> orderService.updateOrderStatusByNumber("INVALID-ORD", "DELIVERED"));
+    }
+
+    @Test
+    @DisplayName("Should cancel order with RAZORPAY payment method and call razorpay refund")
+    public void testCancelOrder_Razorpay() {
+        sampleOrder.setPaymentMethod(PaymentMethod.RAZORPAY);
+        sampleOrder.setPaymentStatus(PaymentStatus.PAID);
+        when(orderRepository.findByIdAndCustomerId(100L, 1L)).thenReturn(Optional.of(sampleOrder));
+        when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
+
+        OrderDTO result = orderService.cancelOrder(100L, 1L, "Customer request");
+
+        assertNotNull(result);
+        assertEquals(OrderStatus.CANCELLED, result.getOrderStatus());
+        verify(razorpayService).refundPayment(eq(sampleOrder), eq(sampleOrder.getTotalAmount()), eq("Customer request"));
+    }
+
+    @Test
+    @DisplayName("Should process admin dispute refund successfully for WALLET order")
+    public void testAdminDisputeRefund_Wallet() {
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(sampleOrder));
+        when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
+
+        OrderDTO result = orderService.adminDisputeRefund(100L, "Defective item");
+
+        assertNotNull(result);
+        assertEquals(OrderStatus.REFUNDED_BY_ADMIN, result.getOrderStatus());
+        verify(walletServiceClient).refund(any());
+        verify(productServiceClient).releaseStock(any());
+    }
+
+    @Test
+    @DisplayName("Should process admin dispute refund successfully for RAZORPAY order")
+    public void testAdminDisputeRefund_Razorpay() {
+        sampleOrder.setPaymentMethod(PaymentMethod.RAZORPAY);
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(sampleOrder));
+        when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
+
+        OrderDTO result = orderService.adminDisputeRefund(100L, "Faulty product");
+
+        assertNotNull(result);
+        assertEquals(OrderStatus.REFUNDED_BY_ADMIN, result.getOrderStatus());
+        verify(razorpayService).refundPayment(eq(sampleOrder), eq(sampleOrder.getTotalAmount()), eq("Faulty product"));
+        verify(productServiceClient).releaseStock(any());
+    }
+
+    @Test
+    @DisplayName("Should throw BadRequestException if dispute refund on already cancelled or refunded order")
+    public void testAdminDisputeRefund_AlreadyRefundedThrowsBadRequest() {
+        sampleOrder.setOrderStatus(OrderStatus.CANCELLED);
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(sampleOrder));
+
+        assertThrows(BadRequestException.class, () -> orderService.adminDisputeRefund(100L, "reason"));
+    }
+
+    @Test
+    @DisplayName("Should throw ResourceNotFoundException if dispute refund on non-existent order")
+    public void testAdminDisputeRefund_NotFound() {
+        when(orderRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> orderService.adminDisputeRefund(999L, "reason"));
+    }
+
+    @Test
+    @DisplayName("Should throw BadRequestException if wallet refund throws exception during admin dispute")
+    public void testAdminDisputeRefund_WalletExceptionThrowsBadRequest() {
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(sampleOrder));
+        doThrow(new RuntimeException("Wallet connection timeout")).when(walletServiceClient).refund(any());
+
+        assertThrows(BadRequestException.class, () -> orderService.adminDisputeRefund(100L, "reason"));
+    }
+
+    @Test
+    @DisplayName("Should throw BadRequestException if razorpay refund throws exception during admin dispute")
+    public void testAdminDisputeRefund_RazorpayExceptionThrowsBadRequest() {
+        sampleOrder.setPaymentMethod(PaymentMethod.RAZORPAY);
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(sampleOrder));
+        doThrow(new RuntimeException("Gateway error")).when(razorpayService).refundPayment(any(), any(), any());
+
+        assertThrows(BadRequestException.class, () -> orderService.adminDisputeRefund(100L, "reason"));
+    }
+
+    @Test
+    @DisplayName("Should use default reason when dispute refund reason is null or blank")
+    public void testAdminDisputeRefund_DefaultReason() {
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(sampleOrder));
+        when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
+
+        OrderDTO result = orderService.adminDisputeRefund(100L, null);
+
+        assertNotNull(result);
+        assertEquals(OrderStatus.REFUNDED_BY_ADMIN, result.getOrderStatus());
+    }
+
+    @Test
+    @DisplayName("Should absorb stock release exception during cancel order")
+    public void testCancelOrder_ReleaseStockExceptionAbsorbed() {
+        when(orderRepository.findByIdAndCustomerId(100L, 1L)).thenReturn(Optional.of(sampleOrder));
+        when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
+        doThrow(new RuntimeException("Inventory service down")).when(productServiceClient).releaseStock(any());
+
+        OrderDTO result = orderService.cancelOrder(100L, 1L, "Cancelled by user");
+
+        assertNotNull(result);
+        assertEquals(OrderStatus.CANCELLED, result.getOrderStatus());
+    }
+
+    @Test
+    @DisplayName("Admin dispute refund throws BadRequestException when order is already refunded or cancelled")
+    public void testAdminDisputeRefund_AlreadyRefundedOrCancelled() {
+        sampleOrder.setOrderStatus(OrderStatus.REFUNDED_BY_ADMIN);
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(sampleOrder));
+        assertThrows(BadRequestException.class, () -> orderService.adminDisputeRefund(100L, "reason"));
+
+        sampleOrder.setOrderStatus(OrderStatus.CANCELLED);
+        assertThrows(BadRequestException.class, () -> orderService.adminDisputeRefund(100L, "reason"));
+    }
+
+    @Test
+    @DisplayName("Admin dispute refund with Razorpay payment method succeeds")
+    public void testAdminDisputeRefund_RazorpaySuccess() {
+        sampleOrder.setPaymentMethod(PaymentMethod.RAZORPAY);
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(sampleOrder));
+        when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
+        when(razorpayService.refundPayment(any(), any(), any())).thenReturn(true);
+
+        OrderDTO result = orderService.adminDisputeRefund(100L, "Item damaged in transit");
+
+        assertNotNull(result);
+        assertEquals(OrderStatus.REFUNDED_BY_ADMIN, result.getOrderStatus());
+        verify(razorpayService).refundPayment(eq(sampleOrder), any(BigDecimal.class), eq("Item damaged in transit"));
+    }
+
+    @Test
+    @DisplayName("Admin dispute refund absorbs stock release exception gracefully")
+    public void testAdminDisputeRefund_StockReleaseExceptionAbsorbed() {
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(sampleOrder));
+        when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
+        doThrow(new RuntimeException("Release stock failure")).when(productServiceClient).releaseStock(any());
+
+        OrderDTO result = orderService.adminDisputeRefund(100L, "Customer dispute");
+
+        assertNotNull(result);
+        assertEquals(OrderStatus.REFUNDED_BY_ADMIN, result.getOrderStatus());
+    }
+
+    @Test
+    @DisplayName("Update order status by ID throws ResourceNotFoundException when not found")
+    public void testUpdateOrderStatus_NotFoundThrowsException() {
+        when(orderRepository.findById(999L)).thenReturn(Optional.empty());
+        assertThrows(ResourceNotFoundException.class, () -> orderService.updateOrderStatus(999L, "SHIPPED"));
+    }
+
+    @Test
+    @DisplayName("Update order status by number throws ResourceNotFoundException when not found")
+    public void testUpdateOrderStatusByNumber_NotFoundThrowsException() {
+        when(orderRepository.findByOrderNumber("ORD-999-NOTFOUND")).thenReturn(Optional.empty());
+        assertThrows(ResourceNotFoundException.class, () -> orderService.updateOrderStatusByNumber("ORD-999-NOTFOUND", "DELIVERED"));
     }
 }
 

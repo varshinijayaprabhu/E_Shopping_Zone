@@ -131,10 +131,33 @@ export interface OrderItem {
 export interface PaymentRecord {
   id: number;
   paymentReference: string;
-  paymentMethod: 'WALLET' | 'CASH_ON_DELIVERY';
+  paymentMethod: 'WALLET' | 'CASH_ON_DELIVERY' | 'RAZORPAY';
   paymentStatus: string;
   amount: number;
+  gatewayOrderId?: string;
+  gatewayPaymentId?: string;
+  gatewaySignature?: string;
   createdAt: string;
+}
+
+export interface RazorpayOrderIntent {
+  razorpayOrderId: string;
+  orderNumber: string;
+  amount: number;
+  amountInPaise: number;
+  currency: string;
+  keyId: string;
+}
+
+export interface RazorpayVerifyPayload {
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  razorpaySignature: string;
+  orderNumber: string;
+  shippingName: string;
+  shippingPhone: string;
+  shippingAddress: string;
+  idempotencyKey?: string;
 }
 
 export interface Order {

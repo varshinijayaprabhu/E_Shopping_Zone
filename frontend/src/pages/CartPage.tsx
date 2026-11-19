@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingCart, Trash2, ArrowRight, ArrowLeft, Package, AlertCircle } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { formatCurrency } from '../utils/formatters';
-import { resolveImageUrl } from '../utils/imageUrl';
+import { resolveImageUrl, getProductFallbackSvg } from '../utils/imageUrl';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
 
@@ -94,18 +94,15 @@ export const CartPage: React.FC = () => {
               <div key={item.itemId} className="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 {/* Item Image */}
                 <div className="w-20 h-20 rounded-xl bg-slate-100 overflow-hidden flex-shrink-0 border border-slate-100">
-                  {resolveImageUrl(item.imageUrl) ? (
-                    <img
-                      src={resolveImageUrl(item.imageUrl)}
-                      alt={item.productName}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-400">
-                      <Package className="w-8 h-8" />
-                    </div>
-                  )}
+                  <img
+                    src={resolveImageUrl(item.imageUrl) || getProductFallbackSvg(item.productName)}
+                    alt={item.productName}
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = getProductFallbackSvg(item.productName);
+                    }}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
 
                 {/* Item Details */}

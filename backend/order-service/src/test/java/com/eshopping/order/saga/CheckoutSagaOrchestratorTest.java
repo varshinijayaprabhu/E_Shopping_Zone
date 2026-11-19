@@ -288,5 +288,65 @@ public class CheckoutSagaOrchestratorTest {
         assertEquals(PaymentStatus.PAID, result.getPaymentStatus());
         verify(productServiceClient, never()).releaseStock(any());
     }
+
+    @Test
+    @DisplayName("Should successfully execute checkout saga with COD payment and apply shipping fee for subtotal < 1000")
+    public void testSuccessfulCodCheckoutWithShippingFee() {
+        CheckoutRequestDTO codRequest = new CheckoutRequestDTO(
+                "IDEMP-COD-001",
+                PaymentMethod.CASH_ON_DELIVERY,
+                "Bob Customer",
+                "+91-9876543211",
+                "456 Market St, Pune"
+        );
+
+        CartItemClientDTO smallItem = new CartItemClientDTO(
+                1L,
+                10L,
+                "USB Cable",
+                "USB-C",
+                new BigDecimal("400.00"),
+                "http://img.com/usb.png",
+                1,
+                new BigDecimal("400.00"),
+                true,
+                20
+        );
+        CartClientDTO smallCart = new CartClientDTO(1L, 1L, Collections.singletonList(smallItem), 1, new BigDecimal("400.00"));
+
+        when(orderRepository.findByIdempotencyKey("IDEMP-COD-001")).thenReturn(Optional.empty());
+        when(cartServiceClient.getCart(eq(1L), any())).thenReturn(smallCart);
+
+        ProductClientDTO productClientDTO = new ProductClientDTO();
+        ProductClientDTO.ProductData productData = new ProductClientDTO.ProductData();
+        productData.setId(10L);
+        productData.setMerchantId(2L);
+        productData.setName("USB Cable");
+        productData.setPrice(new BigDecimal("400.00"));
+        productClientDTO.setData(productData);
+        when(productServiceClient.getProductById(10L)).thenReturn(productClientDTO);
+
+        InventoryReserveClientResponseDTO reserveResponse = new InventoryReserveClientResponseDTO();
+        reserveResponse.setSuccess(true);
+        when(productServiceClient.reserveStock(any(InventoryReserveClientRequestDTO.class))).thenReturn(reserveResponse);
+
+        // Simulate cart clearance failure (non-critical, should be caught and ignored)
+        doThrow(new RuntimeException("Cart service temporary unavailable"))
+                .when(cartServiceClient).clearCart(anyLong(), any());
+
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Order result = orchestrator.executeCheckoutSaga(codRequest, 1L, "Bearer token");
+
+        assertNotNull(result);
+        assertEquals(PaymentMethod.CASH_ON_DELIVERY, result.getPaymentMethod());
+        assertEquals(PaymentStatus.COD_PENDING, result.getPaymentStatus());
+        assertEquals(OrderStatus.PLACED, result.getOrderStatus());
+        assertEquals(SagaState.COMPLETED, result.getSagaState());
+        assertEquals(new BigDecimal("400.00"), result.getSubtotalAmount());
+        assertEquals(new BigDecimal("50.00"), result.getShippingFee());
+        assertEquals(new BigDecimal("450.00"), result.getTotalAmount());
+        verify(walletServiceClient, never()).pay(any());
+    }
 }
 

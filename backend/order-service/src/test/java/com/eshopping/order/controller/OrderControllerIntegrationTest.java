@@ -31,6 +31,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -339,6 +340,82 @@ public class OrderControllerIntegrationTest {
         mockMvc.perform(post("/api/orders/reconcile")
                         .header("X-Internal-Secret", "WRONG_SECRET"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("GET /api/orders/internal/metrics/summary - Returns order metrics summary")
+    public void testGetMetricsSummary() throws Exception {
+        mockMvc.perform(get("/api/orders/internal/metrics/summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success", is(true)))
+                .andExpect(jsonPath("$.data.totalOrders").exists())
+                .andExpect(jsonPath("$.data.totalRevenue").exists());
+    }
+
+    @Test
+    @DisplayName("PUT /api/orders/internal/{id}/status - Updates status and returns 200 OK")
+    public void testUpdateOrderStatusInternal() throws Exception {
+        CheckoutRequestDTO request = new CheckoutRequestDTO(
+                "IDEMP-STATUS-001", PaymentMethod.WALLET, "Alice", "+91-9876543210", "123 Tech Park"
+        );
+        String res = mockMvc.perform(post("/api/orders/checkout")
+                        .header("Authorization", customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andReturn().getResponse().getContentAsString();
+
+        Long orderId = objectMapper.readTree(res).path("data").path("id").asLong();
+
+        mockMvc.perform(put("/api/orders/internal/" + orderId + "/status")
+                        .param("status", "SHIPPED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.orderStatus", is("SHIPPED")));
+    }
+
+    @Test
+    @DisplayName("PUT /api/orders/status/{orderNumber} - Updates status by number and returns 200 OK")
+    public void testUpdateOrderStatusByNumber() throws Exception {
+        CheckoutRequestDTO request = new CheckoutRequestDTO(
+                "IDEMP-STATUS-002", PaymentMethod.WALLET, "Alice", "+91-9876543210", "123 Tech Park"
+        );
+        String res = mockMvc.perform(post("/api/orders/checkout")
+                        .header("Authorization", customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andReturn().getResponse().getContentAsString();
+
+        String orderNumber = objectMapper.readTree(res).path("data").path("orderNumber").asText();
+
+        mockMvc.perform(put("/api/orders/status/" + orderNumber)
+                        .param("status", "DELIVERED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.orderStatus", is("DELIVERED")));
+
+        // Also test GET /api/orders/status/{orderNumber}
+        mockMvc.perform(get("/api/orders/status/" + orderNumber))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.orderNumber", is(orderNumber)))
+                .andExpect(jsonPath("$.data.orderStatus", is("DELIVERED")));
+    }
+
+    @Test
+    @DisplayName("POST /api/orders/internal/{id}/dispute-refund - Processes admin dispute refund")
+    public void testAdminDisputeRefundInternal() throws Exception {
+        CheckoutRequestDTO request = new CheckoutRequestDTO(
+                "IDEMP-DISPUTE-001", PaymentMethod.WALLET, "Alice", "+91-9876543210", "123 Tech Park"
+        );
+        String res = mockMvc.perform(post("/api/orders/checkout")
+                        .header("Authorization", customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andReturn().getResponse().getContentAsString();
+
+        Long orderId = objectMapper.readTree(res).path("data").path("id").asLong();
+
+        mockMvc.perform(post("/api/orders/internal/" + orderId + "/dispute-refund")
+                        .param("reason", "Defective goods verified by admin"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.orderStatus", is("REFUNDED_BY_ADMIN")));
     }
 }
 

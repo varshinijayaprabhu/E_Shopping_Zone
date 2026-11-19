@@ -39,7 +39,7 @@ public class Product {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal price;
 
-    @Column(name = "image_url", columnDefinition = "TEXT")
+    @Column(name = "image_url", columnDefinition = "MEDIUMTEXT")
     private String imageUrl;
 
     @Column(nullable = false)

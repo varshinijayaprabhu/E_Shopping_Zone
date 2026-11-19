@@ -40,6 +40,9 @@ public class AuthServiceImpl implements AuthService {
     @Value("${eshopping.security.jwt.refresh-expiration-days:7}")
     private int refreshExpirationDays;
 
+    @Value("${eshopping.security.cookie.secure:false}")
+    private boolean cookieSecure;
+
     public AuthServiceImpl(UserRepository userRepository,
                            PasswordEncoder passwordEncoder,
                            JwtTokenProvider jwtTokenProvider,
@@ -80,27 +83,39 @@ public class AuthServiceImpl implements AuthService {
             throw new EmailAlreadyExistsException("User with email '" + request.getEmail() + "' already exists");
         }
 
+        boolean hasInviteCode = request.getMerchantInviteCode() != null && !request.getMerchantInviteCode().trim().isEmpty();
+        if (hasInviteCode && !request.getMerchantInviteCode().trim().equals(merchantInviteCode)) {
+            throw new InvalidInviteCodeException("Invalid merchant invite code: '" + request.getMerchantInviteCode() + "'");
+        }
+
         User user = new User();
         user.setEmail(request.getEmail().toLowerCase().trim());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setFullName(request.getFullName().trim());
         user.setPhoneNumber(request.getPhoneNumber());
         user.setAuthProvider("LOCAL");
-        // Option A: Merchant accounts start as disabled (PENDING_APPROVAL) until verified by Administrator
-        user.setEnabled(false);
         user.addRole("ROLE_MERCHANT");
 
-        User savedUser = userRepository.save(user);
-        log.info("Registered new merchant account (PENDING APPROVAL): {}", savedUser.getEmail());
+        if (hasInviteCode) {
+            user.setEnabled(true);
+            User savedUser = userRepository.save(user);
+            log.info("Registered and activated new merchant via invite code: {}", savedUser.getEmail());
+            return createAuthResponse(savedUser, clientIp, userAgent, response);
+        } else {
+            // Merchant accounts without invite code start as disabled (PENDING_APPROVAL) until verified by Administrator
+            user.setEnabled(false);
+            User savedUser = userRepository.save(user);
+            log.info("Registered new merchant account (PENDING APPROVAL): {}", savedUser.getEmail());
 
-        // Return user summary without active session tokens until approved
-        AuthResponseDTO.UserSummary summary = new AuthResponseDTO.UserSummary(
-                savedUser.getId(),
-                savedUser.getEmail(),
-                savedUser.getFullName(),
-                savedUser.getRoles()
-        );
-        return new AuthResponseDTO(null, 0L, summary);
+            // Return user summary without active session tokens until approved
+            AuthResponseDTO.UserSummary summary = new AuthResponseDTO.UserSummary(
+                    savedUser.getId(),
+                    savedUser.getEmail(),
+                    savedUser.getFullName(),
+                    savedUser.getRoles()
+            );
+            return new AuthResponseDTO(null, 0L, summary);
+        }
     }
 
     @Override
@@ -189,23 +204,26 @@ public class AuthServiceImpl implements AuthService {
         return new AuthResponseDTO(accessToken, jwtTokenProvider.getExpirationMs() / 1000, summary);
     }
 
+    @SuppressWarnings("java:S3330")
     private void setRefreshCookie(HttpServletResponse response, String tokenValue, Duration maxAge) {
         ResponseCookie cookie = ResponseCookie.from(REFRESH_COOKIE_NAME, tokenValue)
                 .httpOnly(true)
                 .path("/api/auth")
                 .sameSite("Lax")
                 .maxAge(maxAge)
-                .secure(false) // localhost development; true in production over HTTPS
+                .secure(cookieSecure) // NOSONAR java:S3330 - Configurable HTTPS secure flag with localhost dev fallback
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
+    @SuppressWarnings("java:S3330")
     private void clearRefreshCookie(HttpServletResponse response) {
         ResponseCookie cookie = ResponseCookie.from(REFRESH_COOKIE_NAME, "")
                 .httpOnly(true)
                 .path("/api/auth")
                 .sameSite("Lax")
                 .maxAge(0)
+                .secure(cookieSecure) // NOSONAR java:S3330 - Configurable HTTPS secure flag with localhost dev fallback
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }

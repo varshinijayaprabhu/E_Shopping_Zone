@@ -4,11 +4,15 @@ import com.eshopping.wallet.dto.ApiResponse;
 import com.eshopping.wallet.dto.DepositRequestDTO;
 import com.eshopping.wallet.dto.PaymentRequestDTO;
 import com.eshopping.wallet.dto.PaymentStatusResponseDTO;
+import com.eshopping.wallet.dto.RazorpayTopupCreateOrderRequestDTO;
+import com.eshopping.wallet.dto.RazorpayTopupCreateOrderResponseDTO;
+import com.eshopping.wallet.dto.RazorpayTopupVerifyRequestDTO;
 import com.eshopping.wallet.dto.RefundRequestDTO;
 import com.eshopping.wallet.dto.WalletDTO;
 import com.eshopping.wallet.dto.WalletTransactionDTO;
 import com.eshopping.wallet.exception.AccessDeniedException;
 import com.eshopping.wallet.security.CustomUserDetails;
+import com.eshopping.wallet.service.RazorpayWalletService;
 import com.eshopping.wallet.service.WalletService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -37,12 +41,14 @@ import javax.validation.Valid;
 public class WalletController {
 
     private final WalletService walletService;
+    private final RazorpayWalletService razorpayWalletService;
 
     @Value("${internal.service.secret:ESHOPPING_INTERNAL_SECRET_2026}")
     private String internalSecretKey;
 
-    public WalletController(WalletService walletService) {
+    public WalletController(WalletService walletService, RazorpayWalletService razorpayWalletService) {
         this.walletService = walletService;
+        this.razorpayWalletService = razorpayWalletService;
     }
 
     @GetMapping
@@ -82,6 +88,26 @@ public class WalletController {
             @Valid @RequestBody DepositRequestDTO request) {
         WalletTransactionDTO txn = walletService.deposit(userDetails.getId(), request);
         return ResponseEntity.ok(ApiResponse.ok("Deposit processed successfully", txn));
+    }
+
+    @PostMapping("/payment/razorpay/create-order")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @Operation(summary = "Create Razorpay Order Intent for wallet top-up", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<RazorpayTopupCreateOrderResponseDTO>> createRazorpayTopupOrder(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody RazorpayTopupCreateOrderRequestDTO request) {
+        RazorpayTopupCreateOrderResponseDTO response = razorpayWalletService.createTopupOrder(userDetails.getId(), request);
+        return ResponseEntity.ok(ApiResponse.ok("Razorpay top-up order intent created successfully", response));
+    }
+
+    @PostMapping("/payment/razorpay/verify")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @Operation(summary = "Verify Razorpay cryptographic signature and credit wallet balance", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<WalletTransactionDTO>> verifyRazorpayTopup(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody RazorpayTopupVerifyRequestDTO request) {
+        WalletTransactionDTO txn = razorpayWalletService.verifyAndCreditWallet(userDetails.getId(), request);
+        return ResponseEntity.ok(ApiResponse.ok("Wallet balance successfully credited via Razorpay", txn));
     }
 
     @PostMapping("/pay")

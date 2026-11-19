@@ -14,6 +14,9 @@ public class PaymentRecordDTO {
     private PaymentStatus paymentStatus;
     private BigDecimal amount;
     private String idempotencyKey;
+    private String gatewayOrderId;
+    private String gatewayPaymentId;
+    private String gatewaySignature;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -31,6 +34,16 @@ public class PaymentRecordDTO {
         this.idempotencyKey = idempotencyKey;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+    }
+
+    public PaymentRecordDTO(Long id, String paymentReference, PaymentMethod paymentMethod,
+                            PaymentStatus paymentStatus, BigDecimal amount,
+                            String idempotencyKey, String gatewayOrderId, String gatewayPaymentId,
+                            String gatewaySignature, LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this(id, paymentReference, paymentMethod, paymentStatus, amount, idempotencyKey, createdAt, updatedAt);
+        this.gatewayOrderId = gatewayOrderId;
+        this.gatewayPaymentId = gatewayPaymentId;
+        this.gatewaySignature = gatewaySignature;
     }
 
     public Long getId() {
@@ -79,6 +92,30 @@ public class PaymentRecordDTO {
 
     public void setIdempotencyKey(String idempotencyKey) {
         this.idempotencyKey = idempotencyKey;
+    }
+
+    public String getGatewayOrderId() {
+        return gatewayOrderId;
+    }
+
+    public void setGatewayOrderId(String gatewayOrderId) {
+        this.gatewayOrderId = gatewayOrderId;
+    }
+
+    public String getGatewayPaymentId() {
+        return gatewayPaymentId;
+    }
+
+    public void setGatewayPaymentId(String gatewayPaymentId) {
+        this.gatewayPaymentId = gatewayPaymentId;
+    }
+
+    public String getGatewaySignature() {
+        return gatewaySignature;
+    }
+
+    public void setGatewaySignature(String gatewaySignature) {
+        this.gatewaySignature = gatewaySignature;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -4,6 +4,7 @@ import com.eshopping.order.dto.CheckoutRequestDTO;
 import com.eshopping.order.dto.MerchantOrderItemDTO;
 import com.eshopping.order.dto.OrderDTO;
 import com.eshopping.order.dto.OrderMetricsSummaryDTO;
+import com.eshopping.order.entity.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -30,5 +31,7 @@ public interface OrderService {
     OrderDTO updateOrderStatusByNumber(String orderNumber, String status);
 
     OrderDTO adminDisputeRefund(Long orderId, String reason);
+
+    OrderDTO mapToOrderDTO(Order order);
 }
 

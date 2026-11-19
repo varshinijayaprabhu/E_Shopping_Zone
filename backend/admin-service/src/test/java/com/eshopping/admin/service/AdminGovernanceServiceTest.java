@@ -6,6 +6,7 @@ import com.eshopping.admin.dto.*;
 import com.eshopping.admin.entity.AdminAuditLog;
 import com.eshopping.admin.entity.DisputeStatus;
 import com.eshopping.admin.entity.DisputeTicket;
+import com.eshopping.admin.exception.AccessDeniedException;
 import com.eshopping.admin.exception.BadRequestException;
 import com.eshopping.admin.exception.ResourceNotFoundException;
 import com.eshopping.admin.repository.AdminAuditLogRepository;
@@ -260,5 +261,156 @@ class AdminGovernanceServiceTest {
         assertEquals(DisputeStatus.ESCALATED_TO_ADMIN, expired1.getStatus());
         assertEquals(DisputeStatus.ESCALATED_TO_ADMIN, expired2.getStatus());
         verify(disputeTicketRepository, times(2)).save(any(DisputeTicket.class));
+    }
+
+    @Test
+    @DisplayName("getAllMerchants returns merchant list from ProfileServiceClient")
+    void testGetAllMerchants() {
+        MerchantProfileResponseDTO m = new MerchantProfileResponseDTO();
+        m.setId(10L);
+        m.setEmail("m@e.com");
+        when(profileServiceClient.getAllMerchants()).thenReturn(Collections.singletonList(m));
+
+        List<MerchantProfileResponseDTO> list = governanceService.getAllMerchants();
+
+        assertNotNull(list);
+        assertEquals(1, list.size());
+    }
+
+    @Test
+    @DisplayName("getDisputeById returns dispute DTO when found")
+    void testGetDisputeById_Found() {
+        DisputeTicket ticket = new DisputeTicket(101L, 1L, 20L, "Damaged", null, new BigDecimal("500.00"), LocalDateTime.now().plusMinutes(5));
+        ticket.setId(10L);
+        when(disputeTicketRepository.findById(10L)).thenReturn(Optional.of(ticket));
+
+        DisputeResponseDTO dto = governanceService.getDisputeById(10L);
+
+        assertNotNull(dto);
+        assertEquals(10L, dto.getId());
+    }
+
+    @Test
+    @DisplayName("getDisputeById throws ResourceNotFoundException when not found")
+    void testGetDisputeById_NotFound() {
+        when(disputeTicketRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> governanceService.getDisputeById(999L));
+    }
+
+    @Test
+    @DisplayName("getCustomerDisputes and getMerchantDisputes return mapped DTOs")
+    void testGetCustomerAndMerchantDisputes() {
+        DisputeTicket ticket = new DisputeTicket(101L, 1L, 20L, "Damaged", null, new BigDecimal("500.00"), LocalDateTime.now().plusMinutes(5));
+        ticket.setId(10L);
+        when(disputeTicketRepository.findByCustomerIdOrderByCreatedAtDesc(1L)).thenReturn(Collections.singletonList(ticket));
+        when(disputeTicketRepository.findByMerchantIdOrderByCreatedAtDesc(20L)).thenReturn(Collections.singletonList(ticket));
+
+        List<DisputeResponseDTO> custDisputes = governanceService.getCustomerDisputes(1L);
+        List<DisputeResponseDTO> merchDisputes = governanceService.getMerchantDisputes(20L);
+
+        assertEquals(1, custDisputes.size());
+        assertEquals(1, merchDisputes.size());
+    }
+
+    @Test
+    @DisplayName("getDisputes with null status returns all disputes paged")
+    void testGetDisputes_AllAndByStatus() {
+        DisputeTicket ticket = new DisputeTicket(101L, 1L, 20L, "Damaged", null, new BigDecimal("500.00"), LocalDateTime.now().plusMinutes(5));
+        Page<DisputeTicket> page = new PageImpl<>(Collections.singletonList(ticket));
+
+        when(disputeTicketRepository.findAllByOrderByCreatedAtDesc(any(PageRequest.class))).thenReturn(page);
+        when(disputeTicketRepository.findByStatusOrderByCreatedAtDesc(eq(DisputeStatus.PENDING_MERCHANT), any(PageRequest.class))).thenReturn(page);
+
+        Page<DisputeResponseDTO> allPage = governanceService.getDisputes(null, PageRequest.of(0, 10));
+        Page<DisputeResponseDTO> filteredPage = governanceService.getDisputes(DisputeStatus.PENDING_MERCHANT, PageRequest.of(0, 10));
+
+        assertEquals(1, allPage.getTotalElements());
+        assertEquals(1, filteredPage.getTotalElements());
+    }
+
+    @Test
+    @DisplayName("getAuditLogs returns paged audit log DTOs")
+    void testGetAuditLogs() {
+        AdminAuditLog log = new AdminAuditLog(4L, "admin@eshopping.com", "APPROVE", "MERCHANT", 10L, "ok", "{}", "127.0.0.1");
+        log.setId(1L);
+        Page<AdminAuditLog> page = new PageImpl<>(Collections.singletonList(log));
+
+        when(auditLogRepository.findAllByOrderByCreatedAtDesc(any(PageRequest.class))).thenReturn(page);
+
+        Page<AdminAuditLogDTO> result = governanceService.getAuditLogs(PageRequest.of(0, 10));
+
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+    }
+
+    @Test
+    @DisplayName("merchantRespond throws ResourceNotFoundException when dispute not found")
+    void testMerchantRespond_DisputeNotFound() {
+        when(disputeTicketRepository.findById(999L)).thenReturn(Optional.empty());
+        DisputeMerchantResponseRequestDTO req = new DisputeMerchantResponseRequestDTO("ACCEPT", "comment");
+
+        assertThrows(ResourceNotFoundException.class, () -> governanceService.merchantRespond(20L, 999L, req));
+    }
+
+    @Test
+    @DisplayName("merchantRespond throws AccessDeniedException when merchant ID does not match dispute")
+    void testMerchantRespond_UnauthorizedMerchant() {
+        DisputeTicket ticket = new DisputeTicket(101L, 1L, 20L, "Damaged", null, new BigDecimal("500.00"), LocalDateTime.now().plusMinutes(5));
+        ticket.setId(10L);
+        when(disputeTicketRepository.findById(10L)).thenReturn(Optional.of(ticket));
+
+        DisputeMerchantResponseRequestDTO req = new DisputeMerchantResponseRequestDTO("ACCEPT", "comment");
+        assertThrows(AccessDeniedException.class, () -> governanceService.merchantRespond(999L, 10L, req));
+    }
+
+    @Test
+    @DisplayName("merchantRespond throws BadRequestException when dispute is not pending merchant")
+    void testMerchantRespond_WrongStatus() {
+        DisputeTicket ticket = new DisputeTicket(101L, 1L, 20L, "Damaged", null, new BigDecimal("500.00"), LocalDateTime.now().plusMinutes(5));
+        ticket.setId(10L);
+        ticket.setStatus(DisputeStatus.MERCHANT_ACCEPTED);
+        when(disputeTicketRepository.findById(10L)).thenReturn(Optional.of(ticket));
+
+        DisputeMerchantResponseRequestDTO req = new DisputeMerchantResponseRequestDTO("ACCEPT", "comment");
+        assertThrows(BadRequestException.class, () -> governanceService.merchantRespond(20L, 10L, req));
+    }
+
+    @Test
+    @DisplayName("adminResolveDispute throws ResourceNotFoundException when dispute not found")
+    void testAdminResolveDispute_DisputeNotFound() {
+        when(disputeTicketRepository.findById(999L)).thenReturn(Optional.empty());
+        DisputeAdminResolveRequestDTO req = new DisputeAdminResolveRequestDTO("REFUND", "Admin notes");
+
+        assertThrows(ResourceNotFoundException.class, () -> governanceService.adminResolveDispute(4L, 999L, req, "127.0.0.1"));
+    }
+
+    @Test
+    @DisplayName("adminResolveDispute throws BadRequestException when dispute status cannot be resolved")
+    void testAdminResolveDispute_InvalidStatus() {
+        DisputeTicket ticket = new DisputeTicket(101L, 1L, 20L, "Damaged", null, new BigDecimal("500.00"), LocalDateTime.now().plusMinutes(5));
+        ticket.setId(10L);
+        ticket.setStatus(DisputeStatus.RESOLVED_NO_REFUND);
+        when(disputeTicketRepository.findById(10L)).thenReturn(Optional.of(ticket));
+
+        DisputeAdminResolveRequestDTO req = new DisputeAdminResolveRequestDTO("REFUND", "Admin notes");
+        assertThrows(BadRequestException.class, () -> governanceService.adminResolveDispute(4L, 10L, req, "127.0.0.1"));
+    }
+
+    @Test
+    @DisplayName("adminResolveDispute with custom email logs audit with provided email")
+    void testAdminResolveDispute_CustomEmail() {
+        DisputeTicket ticket = new DisputeTicket(101L, 1L, 20L, "Damaged", null, new BigDecimal("500.00"), LocalDateTime.now().plusMinutes(5));
+        ticket.setId(10L);
+        ticket.setStatus(DisputeStatus.ESCALATED_TO_ADMIN);
+        when(disputeTicketRepository.findById(10L)).thenReturn(Optional.of(ticket));
+        when(disputeTicketRepository.save(any(DisputeTicket.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DisputeAdminResolveRequestDTO req = new DisputeAdminResolveRequestDTO("REFUND", "Resolved");
+        governanceService.adminResolveDispute(4L, "custom.admin@eshopping.com", 10L, req, "10.0.0.1");
+
+        ArgumentCaptor<AdminAuditLog> captor = ArgumentCaptor.forClass(AdminAuditLog.class);
+        verify(auditLogRepository).save(captor.capture());
+        assertEquals("custom.admin@eshopping.com", captor.getValue().getAdminEmail());
     }
 }

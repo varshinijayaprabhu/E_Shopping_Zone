@@ -17,7 +17,7 @@ public class ProductUpdateRequestDTO {
     @DecimalMin(value = "0.01", message = "Price must be greater than zero")
     private BigDecimal price;
 
-    @Size(max = 4096, message = "Image URL must not exceed 4096 characters")
+    @Size(max = 2000000, message = "Image URL or data must not exceed 2MB")
     private String imageUrl;
 
     @Min(value = 0, message = "Available stock cannot be negative")

@@ -6,7 +6,7 @@
 [![React](https://img.shields.io/badge/React-18.3.1-cyan.svg)](https://react.dev/)
 [![MySQL](https://img.shields.io/badge/MySQL-8.4-blue.svg)](https://www.mysql.com/)
 
-This guide provides exact, copy-paste instructions to launch the entire **E-ShoppingZone** ecosystem on a local Windows machine — including the **MySQL databases, 7 backend microservices, Swagger documentation, and React web application**.
+This guide provides exact, copy-paste instructions to launch the entire **E-ShoppingZone** ecosystem on a local Windows machine — including the **MySQL databases, 8 backend microservices, Swagger documentation, and React web application**.
 
 ---
 
@@ -17,13 +17,14 @@ Once started, every application, dashboard, and interactive Swagger UI is availa
 | Component | Port | Browser URL | Description |
 | :--- | :---: | :--- | :--- |
 | 🛍️ **React Web Storefront** | `5173` | [http://localhost:5173](http://localhost:5173) | Main user interface (Customers & Merchants) |
-| 🌐 **Eureka Service Registry** | `8761` | [http://localhost:8761](http://localhost:8761) | Dashboard showing all 6 registered microservices |
+| 🌐 **Eureka Service Registry** | `8761` | [http://localhost:8761](http://localhost:8761) | Dashboard showing all 7 registered microservices |
 | 🚪 **Spring Cloud API Gateway** | `8080` | [http://localhost:8080](http://localhost:8080) | Edge entry point routing all API traffic |
 | 📄 **Profile Service Swagger** | `8081` | [http://localhost:8081/swagger-ui/index.html](http://localhost:8081/swagger-ui/index.html) | Auth, Profiles, Token Rotation APIs |
 | 📄 **Product Service Swagger** | `8082` | [http://localhost:8082/swagger-ui/index.html](http://localhost:8082/swagger-ui/index.html) | Catalog, Categories, Stock Reservation APIs |
 | 📄 **Cart Service Swagger** | `8083` | [http://localhost:8083/swagger-ui/index.html](http://localhost:8083/swagger-ui/index.html) | Customer Cart, Line Items, Live Price APIs |
 | 📄 **Order Service Swagger** | `8084` | [http://localhost:8084/swagger-ui/index.html](http://localhost:8084/swagger-ui/index.html) | Checkout Saga, History, Snapshots, COD APIs |
 | 📄 **Wallet Service Swagger** | `8085` | [http://localhost:8085/swagger-ui/index.html](http://localhost:8085/swagger-ui/index.html) | Digital Ledger, Deductions, Refunds APIs |
+| 📄 **Admin Service Swagger** | `8086` | [http://localhost:8086/swagger-ui/index.html](http://localhost:8086/swagger-ui/index.html) | Governance, Disputes, SLA & Audit APIs |
 
 ---
 
@@ -39,17 +40,17 @@ The platform uses **MySQL 8.x** running locally on port `3306`.
 
 2. Execute the master database provisioning script (run once):
    ```powershell
-   # From project root: c:\Users\vivek\Desktop\E Shopping Zone
    Get-Content scripts\init-databases.sql | mysql -u root -p
    ```
    *(Enter your MySQL root password when prompted)*
 
-   This automatically creates and initializes all 5 schemas:
+   This automatically creates and initializes all 6 schemas:
    - `profile_db`: Users, roles, refresh tokens.
-   - `product_db`: 4 categories, 12 products, inventory stock.
+   - `product_db`: 4 categories, 28 products, inventory stock.
    - `cart_db`: Customer carts and line items.
    - `wallet_db`: Digital wallets and immutable ledger with seed balances.
    - `order_db`: Orders, snapshots, payment records.
+   - `admin_db`: Admin audit logs, dispute tickets, and SLA timers.
 
 ---
 

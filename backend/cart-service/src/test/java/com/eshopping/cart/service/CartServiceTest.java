@@ -214,5 +214,94 @@ class CartServiceTest {
         assertEquals(0, testCart.getItems().size());
         verify(cartRepository, times(1)).save(testCart);
     }
+
+    @Test
+    @DisplayName("Update item quantity: Item not found throws ResourceNotFoundException")
+    void testUpdateItemQuantity_ItemNotFound() {
+        when(cartRepository.findByCustomerId(100L)).thenReturn(Optional.of(testCart));
+        when(cartItemRepository.findById(999L)).thenReturn(Optional.empty());
+
+        UpdateCartItemRequestDTO request = new UpdateCartItemRequestDTO(2);
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                cartService.updateItemQuantity(100L, 999L, request)
+        );
+    }
+
+    @Test
+    @DisplayName("Update item quantity: Exceeding stock throws InsufficientStockException")
+    void testUpdateItemQuantity_ExceedsStock() {
+        CartItem item = new CartItem(testCart, 10L, 2);
+        item.setId(5L);
+        testCart.addItem(item);
+
+        when(cartRepository.findByCustomerId(100L)).thenReturn(Optional.of(testCart));
+        when(cartItemRepository.findById(5L)).thenReturn(Optional.of(item));
+        testProduct.setAvailableStock(3);
+        when(productServiceClient.getProductDetails(10L)).thenReturn(testProduct);
+
+        UpdateCartItemRequestDTO request = new UpdateCartItemRequestDTO(10); // requests 10, stock is 3
+
+        assertThrows(InsufficientStockException.class, () ->
+                cartService.updateItemQuantity(100L, 5L, request)
+        );
+    }
+
+    @Test
+    @DisplayName("Remove item: Item not found throws ResourceNotFoundException")
+    void testRemoveItem_ItemNotFound() {
+        when(cartRepository.findByCustomerId(100L)).thenReturn(Optional.of(testCart));
+        when(cartItemRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                cartService.removeItem(100L, 999L)
+        );
+    }
+
+    @Test
+    @DisplayName("Clear cart: When cart does not exist does nothing gracefully")
+    void testClearCart_CartNotFound() {
+        when(cartRepository.findByCustomerId(200L)).thenReturn(Optional.empty());
+
+        cartService.clearCart(200L);
+
+        verify(cartRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Get cart: Product service error triggers fallback product metadata")
+    void testGetCart_ProductServiceFallback() {
+        CartItem item = new CartItem(testCart, 99L, 1);
+        item.setId(8L);
+        testCart.addItem(item);
+
+        when(cartRepository.findByCustomerId(100L)).thenReturn(Optional.of(testCart));
+        when(productServiceClient.getProductDetails(99L)).thenThrow(new RuntimeException("Product service down"));
+
+        CartResponseDTO response = cartService.getCart(100L);
+
+        assertNotNull(response);
+        assertEquals(1, response.getItems().size());
+        assertEquals("Product #99", response.getItems().get(0).getProductName());
+        assertEquals(BigDecimal.ZERO, response.getItems().get(0).getUnitPrice());
+    }
+
+    @Test
+    @DisplayName("Get cart: Auto-provisions cart if customer does not have one")
+    void testGetCart_AutoProvisionsCart() {
+        when(cartRepository.findByCustomerId(300L)).thenReturn(Optional.empty());
+        when(cartRepository.save(any(Cart.class))).thenAnswer(i -> {
+            Cart c = i.getArgument(0);
+            c.setId(30L);
+            return c;
+        });
+
+        CartResponseDTO response = cartService.getCart(300L);
+
+        assertNotNull(response);
+        assertEquals(300L, response.getCustomerId());
+        assertEquals(0, response.getItems().size());
+        verify(cartRepository).save(any(Cart.class));
+    }
 }
 

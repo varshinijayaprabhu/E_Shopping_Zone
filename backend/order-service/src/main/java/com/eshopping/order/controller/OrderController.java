@@ -37,12 +37,14 @@ public class OrderController {
     private static final Logger log = LoggerFactory.getLogger(OrderController.class);
 
     private final OrderService orderService;
+    private final com.eshopping.order.service.RazorpayService razorpayService;
 
     @Value("${eshopping.internal.secret-key:ESHOPPING_INTERNAL_SECRET_2026}")
     private String internalSecretKey;
 
-    public OrderController(OrderService orderService) {
+    public OrderController(OrderService orderService, com.eshopping.order.service.RazorpayService razorpayService) {
         this.orderService = orderService;
+        this.razorpayService = razorpayService;
     }
 
     @PostMapping("/checkout")
@@ -170,6 +172,30 @@ public class OrderController {
             @PathVariable Long id,
             @RequestParam(required = false) String reason) {
         return ResponseEntity.ok(ApiResponse.success("Dispute refund processed successfully", orderService.adminDisputeRefund(id, reason)));
+    }
+
+    @PostMapping("/payment/razorpay/create-order")
+    @PreAuthorize("hasRole('CUSTOMER') or isAuthenticated()")
+    @Operation(summary = "Create Razorpay Order Intent", description = "Computes cart total and returns a Razorpay Order ID for client checkout popup")
+    public ResponseEntity<ApiResponse<com.eshopping.order.dto.RazorpayCreateOrderResponseDTO>> createRazorpayOrder(
+            @Valid @RequestBody com.eshopping.order.dto.RazorpayCreateOrderRequestDTO request,
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        Long customerId = userDetails.getId();
+        com.eshopping.order.dto.RazorpayCreateOrderResponseDTO res = razorpayService.createOrder(customerId, request, authHeader);
+        return ResponseEntity.ok(ApiResponse.success("Razorpay order intent created successfully", res));
+    }
+
+    @PostMapping("/payment/razorpay/verify")
+    @PreAuthorize("hasRole('CUSTOMER') or isAuthenticated()")
+    @Operation(summary = "Verify Razorpay Payment Signature & Complete Saga", description = "Verifies HMAC-SHA256 signature, reserves inventory stock, clears cart, and finalizes order")
+    public ResponseEntity<ApiResponse<OrderDTO>> verifyRazorpayPayment(
+            @Valid @RequestBody com.eshopping.order.dto.RazorpayVerifyPaymentRequestDTO request,
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        Long customerId = userDetails.getId();
+        OrderDTO order = razorpayService.verifyAndCompletePayment(customerId, request, authHeader);
+        return ResponseEntity.ok(ApiResponse.success("Payment verified and order placed successfully", order));
     }
 
     private void validateInternalAccess(HttpServletRequest request) {

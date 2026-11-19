@@ -61,12 +61,14 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 -- Pre-seed Users (Password: Pass1234!)
 INSERT INTO users (id, email, password_hash, full_name, phone_number, auth_provider, enabled) VALUES
 (1, 'customer@eshopping.com', '$2a$10$wT0l0hF2BvH7gP5T5b4KeeiWb7Y5l89C1aZp1bZ4zFqJ2cK6f0g5K', 'Alice Customer', '9876543210', 'LOCAL', 1),
-(2, 'merchant@eshopping.com', '$2a$10$wT0l0hF2BvH7gP5T5b4KeeiWb7Y5l89C1aZp1bZ4zFqJ2cK6f0g5K', 'Bob Merchant', '9876543211', 'LOCAL', 1)
+(2, 'merchant@eshopping.com', '$2a$10$wT0l0hF2BvH7gP5T5b4KeeiWb7Y5l89C1aZp1bZ4zFqJ2cK6f0g5K', 'Bob Merchant', '9876543211', 'LOCAL', 1),
+(3, 'admin@eshopping.com', '$2a$10$wT0l0hF2BvH7gP5T5b4KeeiWb7Y5l89C1aZp1bZ4zFqJ2cK6f0g5K', 'System Administrator', '9876543212', 'LOCAL', 1)
 ON DUPLICATE KEY UPDATE full_name=VALUES(full_name);
 
 INSERT INTO user_roles (user_id, role_name) VALUES
 (1, 'ROLE_CUSTOMER'),
-(2, 'ROLE_MERCHANT')
+(2, 'ROLE_MERCHANT'),
+(3, 'ROLE_ADMIN')
 ON DUPLICATE KEY UPDATE role_name=VALUES(role_name);
 
 -- ==============================================================================
@@ -320,6 +322,49 @@ CREATE TABLE IF NOT EXISTS payment_records (
     transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
     INDEX idx_payment_order (order_id)
+) ENGINE=InnoDB;
+
+-- ==============================================================================
+-- 6. ADMIN GOVERNANCE & DISPUTE DATABASE (admin_db)
+-- ==============================================================================
+CREATE DATABASE IF NOT EXISTS admin_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE admin_db;
+
+CREATE TABLE IF NOT EXISTS admin_audit_logs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    admin_id BIGINT NOT NULL,
+    admin_email VARCHAR(100) DEFAULT 'admin@eshopping.com',
+    action_type VARCHAR(50) NOT NULL,
+    target_entity_type VARCHAR(50) NOT NULL,
+    target_entity_id BIGINT NOT NULL,
+    reason VARCHAR(500) NULL,
+    metadata TEXT NULL,
+    ip_address VARCHAR(45) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_audit_admin (admin_id),
+    INDEX idx_audit_action (action_type)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS dispute_tickets (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_id BIGINT NOT NULL,
+    customer_id BIGINT NOT NULL,
+    merchant_id BIGINT NOT NULL,
+    issue_reason VARCHAR(255) NOT NULL,
+    customer_comment TEXT NULL,
+    merchant_response TEXT NULL,
+    admin_notes TEXT NULL,
+    refund_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    status VARCHAR(40) NOT NULL DEFAULT 'PENDING_MERCHANT',
+    merchant_deadline TIMESTAMP NULL,
+    escalated_at TIMESTAMP NULL,
+    resolved_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_disputes_order (order_id),
+    INDEX idx_disputes_customer (customer_id),
+    INDEX idx_disputes_merchant (merchant_id),
+    INDEX idx_disputes_status (status)
 ) ENGINE=InnoDB;
 
 SET FOREIGN_KEY_CHECKS = 1;

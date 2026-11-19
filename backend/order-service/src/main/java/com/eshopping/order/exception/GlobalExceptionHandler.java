@@ -32,6 +32,13 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(ex.getMessage(), "INSUFFICIENT_STOCK"));
     }
 
+    @ExceptionHandler(PaymentGatewayException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentGatewayException(PaymentGatewayException ex) {
+        log.warn("Payment gateway error: [{}] {}", ex.getErrorCode(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(ex.getMessage(), ex.getErrorCode()));
+    }
+
     @ExceptionHandler(PaymentFailedException.class)
     public ResponseEntity<ErrorResponse> handlePaymentFailedException(PaymentFailedException ex) {
         log.warn("Payment failed: {}", ex.getMessage());

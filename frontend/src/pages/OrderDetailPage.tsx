@@ -388,6 +388,14 @@ export const OrderDetailPage: React.FC = () => {
                   </span>
                 </div>
               )}
+              {order.payment?.gatewayPaymentId && (
+                <div className="pt-1.5 flex justify-between items-center">
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold">Gateway Payment ID</span>
+                  <span className="font-mono text-[11px] text-indigo-600 font-bold">
+                    {order.payment.gatewayPaymentId}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>

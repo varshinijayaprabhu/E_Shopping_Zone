@@ -30,6 +30,8 @@ E-ShoppingZone implements the **Database-per-Service** pattern to maintain stric
 | `order_db` | Order Service | `payment_records`| `id` (PK), `order_id` (FK), `payment_reference` (UK), `amount`, `status` | Audit trail of payment transactions per order |
 | `wallet_db` | Wallet Service | `wallets` | `id` (PK), `customer_id` (UK), `current_balance`, `currency`, `status`, `version` | Customer digital currency balance |
 | `wallet_db` | Wallet Service | `wallet_transactions`| `id` (PK), `wallet_id` (FK), `transaction_reference` (UK), `idempotency_key` (UK), `transaction_type`, `amount`, `balance_after` | Immutable ledger of all deposits, deductions, refunds |
+| `admin_db` | Admin Service | `admin_audit_logs` | `id` (PK), `admin_id`, `admin_email`, `action_type`, `target_entity_type`, `target_entity_id`, `reason`, `ip_address`, `created_at` | Immutable audit trail of governance actions, merchant bans, and dispute overrides |
+| `admin_db` | Admin Service | `dispute_tickets` | `id` (PK), `order_id` (UK), `customer_id`, `merchant_id`, `issue_reason`, `refund_amount`, `status`, `merchant_deadline`, `escalated_at`, `resolved_at` | Customer-merchant order dispute tickets with 2-minute SLA and auto-escalation |
 
 ---
 
@@ -58,5 +60,10 @@ graph TD
 
     subgraph wallet_db ["wallet_db (Wallet Service)"]
         W["wallets"] --- WT["wallet_transactions"]
+    end
+
+    subgraph admin_db ["admin_db (Admin Service)"]
+        AL["admin_audit_logs"]
+        DT["dispute_tickets"]
     end
 ```

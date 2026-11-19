@@ -37,6 +37,7 @@ graph TD
         CART["Cart Service<br/>(Port: 8083)<br/>• Cart Aggregation<br/>• Live Price Verification<br/>• Quantity Updates"]
         ORDER["Order Service<br/>(Port: 8084)<br/>• Checkout Orchestration<br/>• Order Lifecycle<br/>• Compensating Sagas"]
         WALLET["Wallet Service<br/>(Port: 8085)<br/>• Digital Wallet Ledger<br/>• Deposits & Withdrawals<br/>• Idempotent Deductions"]
+        ADMIN["Admin Service<br/>(Port: 8086)<br/>• Platform Governance<br/>• Dispute SLA & Escalation<br/>• Immutable Audit Logging"]
     end
 
     subgraph DatabaseLayer ["Database Per Service (MySQL 8.0)"]
@@ -45,6 +46,7 @@ graph TD
         DB_CART[(cart_db)]
         DB_ORDER[(order_db)]
         DB_WALLET[(wallet_db)]
+        DB_ADMIN[(admin_db)]
     end
 
     SPA -->|HTTP REST / Cookies| GATEWAY
@@ -56,23 +58,28 @@ graph TD
     CART -.->|Registers| EUREKA
     ORDER -.->|Registers| EUREKA
     WALLET -.->|Registers| EUREKA
+    ADMIN -.->|Registers| EUREKA
 
     GATEWAY -->|/api/auth/**, /api/profile/**| PROFILE
     GATEWAY -->|/api/products/**, /api/categories/**| PRODUCT
     GATEWAY -->|/api/cart/**| CART
     GATEWAY -->|/api/orders/**| ORDER
     GATEWAY -->|/api/wallet/**| WALLET
+    GATEWAY -->|/api/admin/**, /api/disputes/**| ADMIN
 
     CART -->|RestTemplate /api/products/{id}| PRODUCT
     ORDER -->|RestTemplate /api/cart| CART
     ORDER -->|RestTemplate /api/products/reserve| PRODUCT
     ORDER -->|RestTemplate /api/wallet/payment| WALLET
+    ADMIN -->|RestTemplate /api/profile/internal/**| PROFILE
+    ADMIN -->|RestTemplate /api/orders/internal/**| ORDER
 
     PROFILE --> DB_PROFILE
     PRODUCT --> DB_PRODUCT
     CART --> DB_CART
     ORDER --> DB_ORDER
     WALLET --> DB_WALLET
+    ADMIN --> DB_ADMIN
 ```
 
 ---
@@ -83,7 +90,7 @@ graph TD
 | :--- | :--- | :--- |
 | **Monorepo Structure** | Backend services, React UI, SQL migrations, Postman collections, and docs in one repository | Single source of truth, simplified continuous integration, atomic versioning |
 | **Java 8 Runtime** | Spring Boot 2.7.18, Spring Cloud 2021.0.9 | Strict adherence to original specification; avoids Java 17/Jakarta EE 9+ breaking changes |
-| **Database per Service** | 5 discrete MySQL databases (`profile_db`, `product_db`, etc.) | Loose coupling; zero cross-service table joins; independent data evolution |
+| **Database per Service** | 6 discrete MySQL databases (`profile_db`, `product_db`, `cart_db`, `order_db`, `wallet_db`, `admin_db`) | Loose coupling; zero cross-service table joins; independent data evolution |
 | **Inter-Service Communication** | Synchronous HTTP via `@LoadBalanced RestTemplate` | Native to specification; low operational overhead without broker infrastructure |
 | **Perimeter Security** | Spring Cloud Gateway + Reactive JWT Filter | Rejects unauthorized traffic at the border before it reaches internal service instances |
 | **Token Lifecycle** | Short-lived JWT (15 min) + Opaque Hashed Refresh Token (7 days) in HttpOnly Cookie | Eliminates XSS token theft via localStorage; automated token rotation with reuse detection |

@@ -250,5 +250,61 @@ public class WalletControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.amount", is(4999.00)))
                 .andExpect(jsonPath("$.data.status", is("SUCCESS")));
     }
+
+    @Test
+    @DisplayName("GET /api/wallet/balance: Customer balance alias returns 200 OK")
+    void testGetWalletBalance_Alias() throws Exception {
+        mockMvc.perform(get("/api/wallet/balance")
+                        .header("Authorization", customerToken)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success", is(true)))
+                .andExpect(jsonPath("$.data.customerId", is(100)));
+    }
+
+    @Test
+    @DisplayName("POST /api/wallet/payment: Internal payment alias processes deduction")
+    void testPayment_Alias() throws Exception {
+        PaymentRequestDTO request = new PaymentRequestDTO(
+                100L, "ORD-ALIAS-PAY-01", new BigDecimal("500.00"), "IDEMP-ALIAS-01", "Payment via alias");
+
+        mockMvc.perform(post("/api/wallet/payment")
+                        .header("X-Internal-Secret", "ESHOPPING_INTERNAL_SECRET_2026")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success", is(true)))
+                .andExpect(jsonPath("$.data.amount", is(500.00)));
+    }
+
+    @Test
+    @DisplayName("POST /api/wallet/pay: Missing internal secret header returns 403 Forbidden")
+    void testPay_MissingInternalSecret_Returns403() throws Exception {
+        PaymentRequestDTO request = new PaymentRequestDTO(
+                100L, "ORD-FORBIDDEN-01", new BigDecimal("500.00"), "IDEMP-FORBID-01", "Payment forbidden");
+
+        mockMvc.perform(post("/api/wallet/pay")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("GET /api/wallet/payment/order/{orderReference}: Using X-Internal-Service header succeeds")
+    void testPaymentStatusReconciliation_InternalServiceHeader() throws Exception {
+        mockMvc.perform(get("/api/wallet/payment/order/ORD-NONEXISTENT")
+                        .header("X-Internal-Service", "order-service")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.found", is(false)));
+    }
+
+    @Test
+    @DisplayName("GET /api/wallet/payment/order/{orderReference}: Missing all credentials returns 403 Forbidden")
+    void testPaymentStatusReconciliation_MissingCredentials_Returns403() throws Exception {
+        mockMvc.perform(get("/api/wallet/payment/order/ORD-ANY")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden());
+    }
 }
 

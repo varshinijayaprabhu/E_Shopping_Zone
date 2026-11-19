@@ -1,5 +1,6 @@
 package com.eshopping.product.service;
 
+import com.eshopping.product.dto.ApiResponse;
 import com.eshopping.product.dto.ProductCreateRequestDTO;
 import com.eshopping.product.dto.ProductResponseDTO;
 import com.eshopping.product.dto.ProductUpdateRequestDTO;
@@ -19,8 +20,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -170,6 +178,117 @@ class ProductServiceTest {
                 productService.deleteProduct(100L, 99L)
         );
         assertTrue(testProduct.isActive());
+    }
+
+    @Test
+    @DisplayName("Get products with filters returns paged product list")
+    @SuppressWarnings("unchecked")
+    void testGetProducts_WithFilters() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Product> page = new PageImpl<>(Collections.singletonList(testProduct), pageable, 1);
+        when(productRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
+
+        ApiResponse<List<ProductResponseDTO>> response = productService.getProducts(1L, new BigDecimal("1000.00"), new BigDecimal("15000.00"), pageable);
+
+        assertNotNull(response);
+        assertEquals(1, response.getData().size());
+        assertEquals("Wireless Headphones", response.getData().get(0).getName());
+    }
+
+    @Test
+    @DisplayName("Search products by keyword returns matching results")
+    void testSearchProducts_WithKeyword() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Product> page = new PageImpl<>(Collections.singletonList(testProduct), pageable, 1);
+        when(productRepository.searchActiveByKeyword(eq("Headphones"), eq(pageable))).thenReturn(page);
+
+        ApiResponse<List<ProductResponseDTO>> response = productService.searchProducts("Headphones", pageable);
+
+        assertNotNull(response);
+        assertEquals(1, response.getData().size());
+    }
+
+    @Test
+    @DisplayName("Search products with empty keyword delegates to getProducts")
+    @SuppressWarnings("unchecked")
+    void testSearchProducts_EmptyKeyword() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Product> page = new PageImpl<>(Collections.singletonList(testProduct), pageable, 1);
+        when(productRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
+
+        ApiResponse<List<ProductResponseDTO>> response = productService.searchProducts("", pageable);
+
+        assertNotNull(response);
+        assertEquals(1, response.getData().size());
+    }
+
+    @Test
+    @DisplayName("Get merchant products returns paged list")
+    void testGetMerchantProducts() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Product> page = new PageImpl<>(Collections.singletonList(testProduct), pageable, 1);
+        when(productRepository.findByMerchantId(eq(10L), eq(pageable))).thenReturn(page);
+
+        ApiResponse<List<ProductResponseDTO>> response = productService.getMerchantProducts(10L, pageable);
+
+        assertNotNull(response);
+        assertEquals(1, response.getData().size());
+    }
+
+    @Test
+    @DisplayName("Get product snapshot returns DTO for existing product")
+    void testGetProductSnapshot_Found() {
+        when(productRepository.findById(100L)).thenReturn(Optional.of(testProduct));
+
+        ProductResponseDTO dto = productService.getProductSnapshot(100L);
+
+        assertNotNull(dto);
+        assertEquals(100L, dto.getId());
+    }
+
+    @Test
+    @DisplayName("Get product snapshot throws ResourceNotFoundException when product not found")
+    void testGetProductSnapshot_NotFound() {
+        when(productRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> productService.getProductSnapshot(999L));
+    }
+
+    @Test
+    @DisplayName("Create product with invalid category throws ResourceNotFoundException")
+    void testCreateProduct_CategoryNotFound() {
+        ProductCreateRequestDTO request = new ProductCreateRequestDTO(
+                999L, "Mouse", "ELEC-MS-001", "USB mouse",
+                new BigDecimal("499.00"), "http://image.com/ms.png", 10
+        );
+        when(productRepository.existsBySku("ELEC-MS-001")).thenReturn(false);
+        when(categoryRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> productService.createProduct(request, 10L));
+    }
+
+    @Test
+    @DisplayName("Update product with category update and inventory creation")
+    void testUpdateProduct_WithCategoryAndStock() {
+        Category newCat = new Category("Audio", "audio", "Audio gear", null);
+        newCat.setId(2L);
+
+        testProduct.setInventory(null); // test null inventory branch
+
+        ProductUpdateRequestDTO request = new ProductUpdateRequestDTO(
+                "Wireless Headset", 2L, "Updated desc", new BigDecimal("7999.00"),
+                "http://img.com/headset.png", 30, true
+        );
+
+        when(productRepository.findById(100L)).thenReturn(Optional.of(testProduct));
+        when(categoryRepository.findById(2L)).thenReturn(Optional.of(newCat));
+        when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ProductResponseDTO updated = productService.updateProduct(100L, request, 10L);
+
+        assertNotNull(updated);
+        assertEquals(30, updated.getAvailableStock());
+        assertEquals(2L, updated.getCategoryId());
     }
 }
 

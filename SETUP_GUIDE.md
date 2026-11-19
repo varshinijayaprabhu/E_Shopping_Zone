@@ -18,7 +18,7 @@ Ensure the following runtimes and tools are installed and present in your system
 
 | Tool / Runtime | Required Version | Verification Command | Purpose |
 | :--- | :---: | :--- | :--- |
-| **Java JDK** | `8` (or 17 targeting 8) | `java -version` | Compiles and executes 7 Spring Boot microservices |
+| **Java JDK** | `8` (or 17 targeting 8) | `java -version` | Compiles and executes 8 Spring Boot microservices |
 | **Apache Maven** | `3.6.0+` | `mvn -v` | Monorepo reactor build tool |
 | **MySQL Server** | `8.0+` or `8.4+` | `mysql --version` | Relational database engine (listening on port `3306`) |
 | **Node.js** | `18.x` or `20.x` | `node -v` | Frontend build and development server |
@@ -29,15 +29,16 @@ Ensure the following runtimes and tools are installed and present in your system
 
 ## 2. Database Initialization
 
-The platform uses a **Database-Per-Service** architecture with 5 distinct physical schemas on MySQL:
+The platform uses a **Database-Per-Service** architecture with 6 distinct physical schemas on MySQL:
 1. `profile_db`
 2. `product_db`
 3. `cart_db`
 4. `order_db`
 5. `wallet_db`
+6. `admin_db`
 
 ### 2.1 One-Command Database Setup
-The master initialization script located at `scripts/init-databases.sql` creates all five databases, establishes all required tables, foreign keys, indexes, and populates initial seed data (4 product categories, 28 catalog products with stock, and demo user accounts).
+The master initialization script located at `scripts/init-databases.sql` creates all six databases, establishes all required tables, foreign keys, indexes, and populates initial seed data (4 product categories, 28 catalog products with stock, and demo user accounts).
 
 Execute the script in PowerShell:
 ```powershell

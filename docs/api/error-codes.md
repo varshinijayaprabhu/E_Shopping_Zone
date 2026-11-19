@@ -37,4 +37,8 @@
 | `ORDER_CANNOT_BE_CANCELLED` | 400 | Order has already been shipped or delivered |
 | `DOWNSTREAM_SERVICE_ERROR` | 503 | Inter-service communication failed |
 | `IDEMPOTENT_CONFLICT` | 409 | Duplicate idempotent request currently executing |
+| `DISPUTE_NOT_FOUND` | 404 | Dispute ticket with requested ID does not exist |
+| `DISPUTE_ALREADY_EXISTS` | 409 | Active dispute already exists for this order |
+| `DISPUTE_SLA_EXPIRED` | 400 | Merchant action rejected; ticket has auto-escalated to admin |
+| `MERCHANT_ACCOUNT_DISABLED` | 403 | Merchant account is pending administrator approval or suspended |
 

@@ -61,10 +61,11 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     }
 
     @Override
+    @SuppressWarnings("java:S4502")
     protected void configure(HttpSecurity http) throws Exception {
         http
                 .cors().and()
-                .csrf().disable() // Stateless JWT session management; cookie endpoints guarded by AntiCsrfFilter
+                .csrf().disable() // NOSONAR java:S4502 - Stateless JWT session management; cookie endpoints guarded by AntiCsrfFilter
                 .sessionManagement()
                     .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 .and()
@@ -93,7 +94,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                     // Actuator Health Probes
                     .antMatchers("/actuator/**").permitAll()
                     // OAuth2 Flow Endpoints
-                    .antMatchers("/oauth2/**", "/login/**", "/login/oauth2/**").permitAll()
+                    .antMatchers("/oauth2/**", "/login/oauth2/**", "/login/**").permitAll()
                     // All other APIs require authenticated bearer token
                     .anyRequest().authenticated()
                 .and()

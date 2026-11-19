@@ -1,9 +1,38 @@
 import axiosClient from './axiosClient';
-import { ApiResponse, CheckoutPayload, MerchantOrderItem, Order, PaginatedResponse } from '../types';
+import {
+  ApiResponse,
+  CheckoutPayload,
+  MerchantOrderItem,
+  Order,
+  PaginatedResponse,
+  RazorpayOrderIntent,
+  RazorpayVerifyPayload,
+} from '../types';
 
 export const orderApi = {
   checkout: async (payload: CheckoutPayload): Promise<ApiResponse<Order>> => {
     const res = await axiosClient.post<ApiResponse<Order>>('/api/orders/checkout', payload);
+    return res.data;
+  },
+
+  createRazorpayOrder: async (payload: {
+    shippingName: string;
+    shippingPhone: string;
+    shippingAddress: string;
+    idempotencyKey?: string;
+  }): Promise<ApiResponse<RazorpayOrderIntent>> => {
+    const res = await axiosClient.post<ApiResponse<RazorpayOrderIntent>>(
+      '/api/orders/payment/razorpay/create-order',
+      payload
+    );
+    return res.data;
+  },
+
+  verifyRazorpayPayment: async (payload: RazorpayVerifyPayload): Promise<ApiResponse<Order>> => {
+    const res = await axiosClient.post<ApiResponse<Order>>(
+      '/api/orders/payment/razorpay/verify',
+      payload
+    );
     return res.data;
   },
 

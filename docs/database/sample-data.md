@@ -16,6 +16,7 @@ BCrypt Hash: `$2a$10$wT0l0hF2BvH7gP5T5b4KeeiWb7Y5l89C1aZp1bZ4zFqJ2cK6f0g5K` (exa
 | **Customer** | `customer@eshopping.com` | `Password@123` | `ROLE_CUSTOMER` | Standard shopping user with pre-funded wallet (₹10,000) |
 | **Merchant** | `merchant@eshopping.com` | `Password@123` | `ROLE_MERCHANT` | Active merchant owning initial product inventory |
 | **Customer 2** | `john.doe@eshopping.com` | `Password@123` | `ROLE_CUSTOMER` | Second customer for multi-user order isolation testing |
+| **Administrator** | `admin@eshopping.com` | `Password@123` | `ROLE_ADMIN` | Platform administrator for merchant approvals, bans, and dispute resolution |
 
 ---
 

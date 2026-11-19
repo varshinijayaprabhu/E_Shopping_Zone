@@ -50,7 +50,8 @@
         <mysql.version>8.0.33</mysql.version>
 
         <!-- SonarQube & JaCoCo Configuration (Dashboard on Port 9090) -->
-        <sonar.host.url>http://localhost:9090</sonar.host.url>
+        <sonar.host.url>http://127.0.0.1:9090</sonar.host.url>
+        <sonar.token>${env.SONAR_TOKEN}</sonar.token>
         <sonar.projectKey>eshopping-backend</sonar.projectKey>
         <sonar.moduleKey>${project.groupId}:${project.artifactId}</sonar.moduleKey>
         <sonar.projectName>E-ShoppingZone Backend</sonar.projectName>
@@ -58,6 +59,8 @@
         <sonar.java.source>1.8</sonar.java.source>
         <sonar.working.directory>C:/temp/sonar</sonar.working.directory>
         <sonar.coverage.jacoco.xmlReportPaths>${project.basedir}/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <sonar.coverage.exclusions>**/dto/**,**/entity/**,**/model/**,**/config/**,**/exception/**,**/*Application.java,**/client/**,**/aop/**</sonar.coverage.exclusions>
+        <sonar.cpd.exclusions>**/dto/**,**/entity/**,**/model/**,**/config/**,**/client/**,**/aop/**</sonar.cpd.exclusions>
         <jacoco.version>0.8.11</jacoco.version>
         <sonar-maven-plugin.version>5.0.0.4389</sonar-maven-plugin.version>
     </properties>
@@ -140,6 +143,18 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>${jacoco.version}</version>
+                <configuration>
+                    <excludes>
+                        <exclude>**/dto/**</exclude>
+                        <exclude>**/entity/**</exclude>
+                        <exclude>**/model/**</exclude>
+                        <exclude>**/config/**</exclude>
+                        <exclude>**/exception/**</exclude>
+                        <exclude>**/*Application.*</exclude>
+                        <exclude>**/client/**</exclude>
+                        <exclude>**/aop/**</exclude>
+                    </excludes>
+                </configuration>
                 <executions>
                     <execution>
                         <id>prepare-agent</id>
@@ -149,7 +164,7 @@
                     </execution>
                     <execution>
                         <id>report</id>
-                        <phase>verify</phase>
+                        <phase>test</phase>
                         <goals>
                             <goal>report</goal>
                         </goals>

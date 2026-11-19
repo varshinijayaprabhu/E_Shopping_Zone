@@ -20,6 +20,7 @@ flowchart TB
         CartSvc["Cart Service<br/>Port: 8083<br/>ServiceId: CART-SERVICE"]
         OrderSvc["Order Service<br/>Port: 8084<br/>ServiceId: ORDER-SERVICE"]
         WalletSvc["Wallet Service<br/>Port: 8085<br/>ServiceId: WALLET-SERVICE"]
+        AdminSvc["Admin Service<br/>Port: 8086<br/>ServiceId: ADMIN-SERVICE"]
     end
 
     Gateway -->|Forward /api/auth, /api/profile| ProfileSvc
@@ -27,12 +28,14 @@ flowchart TB
     Gateway -->|Forward /api/cart| CartSvc
     Gateway -->|Forward /api/orders| OrderSvc
     Gateway -->|Forward /api/wallet| WalletSvc
+    Gateway -->|Forward /api/admin, /api/disputes| AdminSvc
 
     ProfileSvc -.->|Heartbeat & Register| Eureka
     ProductSvc -.->|Heartbeat & Register| Eureka
     CartSvc -.->|Heartbeat & Register| Eureka
     OrderSvc -.->|Heartbeat & Register| Eureka
     WalletSvc -.->|Heartbeat & Register| Eureka
+    AdminSvc -.->|Heartbeat & Register| Eureka
     Gateway -.->|Fetch Registry| Eureka
 ```
 
@@ -49,6 +52,7 @@ flowchart TB
 | **Cart Service** | `cart-service` | `8083` | `cart_db` | Customer Cart Management, Item Aggregation, Price Verification |
 | **Order Service** | `order-service` | `8084` | `order_db` | Checkout Orchestration, Order Placement, Saga Compensation, Status History |
 | **Wallet Service** | `wallet-service` | `8085` | `wallet_db` | Digital Wallet Ledger, Funds Deposit/Withdrawal, Payment Deduction |
+| **Admin Service** | `admin-service` | `8086` | `admin_db` | Platform Governance, Merchant Verification, Dispute Mediation, SLA & Audit Logs |
 | **Frontend UI** | `e-shopping-ui` | `5173` | Browser Storage | React 18 + TypeScript SPA |
 
 ---

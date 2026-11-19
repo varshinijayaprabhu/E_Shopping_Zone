@@ -88,3 +88,17 @@
   6. Use of `BigDecimal` for all monetary arithmetic to eliminate floating-point rounding errors.
   7. Transaction history listing with filtering by transaction type (`DEPOSIT`, `WITHDRAWAL`, `PAYMENT`, `REFUND`).
 
+---
+
+## 8. Admin Microservice (`admin-service`)
+- **Core Technology**: Spring Boot Web, Spring Data JPA, Spring Security, RestTemplate, Springdoc OpenAPI.
+- **Domain**: Governance, SLA Monitoring, Dispute Mediation & Audit Logging.
+- **Responsibilities**:
+  1. Platform overview KPI metrics aggregation ('Big Numbers') across services via REST composition.
+  2. Merchant governance: review seller accounts, approve registrations, and suspend/ban fraudulent merchants.
+  3. Customer dispute ticket lifecycle management with an automated 2-minute merchant SLA countdown timer.
+  4. SLA auto-escalation background scheduler (`@Scheduled`) promoting overdue tickets to `ESCALATED_TO_ADMIN`.
+  5. Administrative dispute arbitration with customer refund override through internal `order-service` Saga compensation.
+  6. Merchant dispute response handling (acceptance auto-refund or rejection escalation).
+  7. Tamper-evident, immutable audit trail logging in `admin_audit_logs` capturing admin ID, action type, IP address, and operational reasoning.
+

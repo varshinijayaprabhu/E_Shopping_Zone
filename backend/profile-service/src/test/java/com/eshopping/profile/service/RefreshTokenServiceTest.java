@@ -107,5 +107,59 @@ class RefreshTokenServiceTest {
                 refreshTokenService.rotateRefreshToken("expired_token", "127.0.0.1", "Mozilla")
         );
     }
+
+    @Test
+    @DisplayName("Rotate refresh token: Null or empty token throws InvalidTokenException")
+    void testRotateRefreshToken_Missing() {
+        assertThrows(InvalidTokenException.class, () ->
+                refreshTokenService.rotateRefreshToken(null, "127.0.0.1", "Mozilla")
+        );
+        assertThrows(InvalidTokenException.class, () ->
+                refreshTokenService.rotateRefreshToken("   ", "127.0.0.1", "Mozilla")
+        );
+    }
+
+    @Test
+    @DisplayName("Rotate refresh token: Non-existent token throws InvalidTokenException")
+    void testRotateRefreshToken_NotFound() {
+        when(refreshTokenRepository.findByTokenHashForUpdate(anyString())).thenReturn(Optional.empty());
+
+        assertThrows(InvalidTokenException.class, () ->
+                refreshTokenService.rotateRefreshToken("unknown_token", "127.0.0.1", "Mozilla")
+        );
+    }
+
+    @Test
+    @DisplayName("Revoke refresh token: Successfully marks token as revoked")
+    void testRevokeRefreshToken_Success() {
+        RefreshToken token = new RefreshToken();
+        token.setUser(testUser);
+        token.setRevoked(false);
+
+        when(refreshTokenRepository.findByTokenHashForUpdate(anyString())).thenReturn(Optional.of(token));
+
+        refreshTokenService.revokeRefreshToken("raw_token_to_revoke");
+
+        assertTrue(token.isRevoked());
+        verify(refreshTokenRepository).save(token);
+    }
+
+    @Test
+    @DisplayName("Revoke refresh token: Null or empty token does nothing")
+    void testRevokeRefreshToken_NullOrEmpty() {
+        refreshTokenService.revokeRefreshToken(null);
+        refreshTokenService.revokeRefreshToken("  ");
+        verify(refreshTokenRepository, never()).findByTokenHashForUpdate(anyString());
+    }
+
+    @Test
+    @DisplayName("Revoke all user tokens: Calls repository revokeAllUserTokens")
+    void testRevokeAllUserTokens() {
+        when(refreshTokenRepository.revokeAllUserTokens(testUser)).thenReturn(3);
+
+        refreshTokenService.revokeAllUserTokens(testUser);
+
+        verify(refreshTokenRepository).revokeAllUserTokens(testUser);
+    }
 }
 

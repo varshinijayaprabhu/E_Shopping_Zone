@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -280,7 +281,10 @@ public class AdminGovernanceServiceImpl implements AdminGovernanceService {
     private DisputeResponseDTO mapToDisputeDTO(DisputeTicket t) {
         Long remainingSeconds = 0L;
         if (t.getStatus() == DisputeStatus.PENDING_MERCHANT && t.getMerchantDeadline() != null) {
-            long sec = Duration.between(LocalDateTime.now(), t.getMerchantDeadline()).getSeconds();
+            long sec = Duration.between(
+                    LocalDateTime.now().atZone(ZoneOffset.UTC),
+                    t.getMerchantDeadline().atZone(ZoneOffset.UTC)
+            ).getSeconds();
             remainingSeconds = Math.max(0L, sec);
         }
 

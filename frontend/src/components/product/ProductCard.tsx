@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ShoppingCart, Package } from 'lucide-react';
 import { Product } from '../../types';
 import { formatCurrency } from '../../utils/formatters';
-import { resolveImageUrl } from '../../utils/imageUrl';
+import { resolveImageUrl, getProductFallbackSvg } from '../../utils/imageUrl';
 import { useCart } from '../../context/CartContext';
 
 interface ProductCardProps {
@@ -43,10 +43,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             loading="lazy"
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
-            <Package className="w-12 h-12 mb-1" />
-            <span className="text-xs font-medium">No preview available</span>
-          </div>
+          <img
+            src={getProductFallbackSvg(product.name, product.categoryName)}
+            alt={product.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            loading="lazy"
+          />
         )}
 
         {/* Stock Badge Overlay */}

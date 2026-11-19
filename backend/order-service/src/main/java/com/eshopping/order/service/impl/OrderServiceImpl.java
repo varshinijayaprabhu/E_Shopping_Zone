@@ -34,17 +34,20 @@ public class OrderServiceImpl implements OrderService {
     private final CheckoutSagaOrchestrator checkoutSagaOrchestrator;
     private final ProductServiceClient productServiceClient;
     private final WalletServiceClient walletServiceClient;
+    private final com.eshopping.order.service.RazorpayService razorpayService;
 
     public OrderServiceImpl(OrderRepository orderRepository,
                             OrderItemRepository orderItemRepository,
                             CheckoutSagaOrchestrator checkoutSagaOrchestrator,
                             ProductServiceClient productServiceClient,
-                            WalletServiceClient walletServiceClient) {
+                            WalletServiceClient walletServiceClient,
+                            @org.springframework.context.annotation.Lazy com.eshopping.order.service.RazorpayService razorpayService) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.checkoutSagaOrchestrator = checkoutSagaOrchestrator;
         this.productServiceClient = productServiceClient;
         this.walletServiceClient = walletServiceClient;
+        this.razorpayService = razorpayService;
     }
 
     @Override
@@ -135,6 +138,23 @@ public class OrderServiceImpl implements OrderService {
             } catch (Exception ex) {
                 log.error("Failed to refund wallet for cancelled order {}: {}", order.getOrderNumber(), ex.getMessage());
             }
+        } else if (order.getPaymentMethod() == PaymentMethod.RAZORPAY && order.getPaymentStatus() == PaymentStatus.PAID) {
+            try {
+                razorpayService.refundPayment(order, order.getTotalAmount(), reason != null ? reason : "Order cancelled by customer");
+                order.setPaymentStatus(PaymentStatus.REFUNDED);
+                PaymentRecord refundRecord = new PaymentRecord(
+                        order,
+                        "REF-RZP-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(),
+                        PaymentMethod.RAZORPAY,
+                        order.getTotalAmount(),
+                        "REFUNDED",
+                        "Razorpay refund: " + (reason != null ? reason : "Cancelled by customer")
+                );
+                order.addPaymentRecord(refundRecord);
+                log.info("Compensating Razorpay refund issued for cancelled order {}", order.getOrderNumber());
+            } catch (Exception ex) {
+                log.error("Failed to refund Razorpay for cancelled order {}: {}", order.getOrderNumber(), ex.getMessage());
+            }
         }
 
         // Step 2: Release stock in Product Service
@@ -218,7 +238,8 @@ public class OrderServiceImpl implements OrderService {
         return reconciledCount;
     }
 
-    private OrderDTO mapToOrderDTO(Order order) {
+    @Override
+    public OrderDTO mapToOrderDTO(Order order) {
         List<OrderItemDTO> itemDTOs = order.getOrderItems().stream()
                 .map(item -> new OrderItemDTO(
                         item.getId(),
@@ -242,6 +263,9 @@ public class OrderServiceImpl implements OrderService {
                     order.getPaymentStatus(),
                     pr.getAmount(),
                     null,
+                    pr.getGatewayOrderId(),
+                    pr.getGatewayPaymentId(),
+                    pr.getGatewaySignature(),
                     pr.getCreatedAt(),
                     null
             );
@@ -368,6 +392,25 @@ public class OrderServiceImpl implements OrderService {
             } catch (Exception ex) {
                 log.error("Failed to execute wallet refund for dispute on order {}: {}", order.getOrderNumber(), ex.getMessage());
                 throw new BadRequestException("Wallet refund failed: " + ex.getMessage());
+            }
+        } else if (order.getPaymentMethod() == PaymentMethod.RAZORPAY) {
+            try {
+                razorpayService.refundPayment(order, order.getTotalAmount(), refundReason);
+                order.setPaymentStatus(PaymentStatus.REFUNDED);
+
+                PaymentRecord refundRecord = new PaymentRecord(
+                        order,
+                        "ADM-REF-RZP-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(),
+                        PaymentMethod.RAZORPAY,
+                        order.getTotalAmount(),
+                        "REFUNDED",
+                        "Admin dispute refund: " + refundReason
+                );
+                order.addPaymentRecord(refundRecord);
+                log.info("Razorpay dispute refund issued to customer {} for order {}", order.getCustomerId(), order.getOrderNumber());
+            } catch (Exception ex) {
+                log.error("Failed to execute Razorpay refund for dispute on order {}: {}", order.getOrderNumber(), ex.getMessage());
+                throw new BadRequestException("Razorpay refund failed: " + ex.getMessage());
             }
         }
 

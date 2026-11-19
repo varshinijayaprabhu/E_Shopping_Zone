@@ -16,7 +16,7 @@ An enterprise-grade, distributed e-commerce microservices platform built strictl
 ## 1. Architectural Highlights
 
 - **Strict Framework Baseline**: Pure **Java 8 bytecode** (`major version: 52`), **Spring Boot 2.7.18**, **Spring Cloud 2021.0.9**, and **Hibernate 5.6.x**.
-- **Microservices Domain Isolation**: 7 autonomous Spring Boot applications with independent MySQL schemas (`profile_db`, `product_db`, `cart_db`, `order_db`, `wallet_db`).
+- **Microservices Domain Isolation**: 8 autonomous Spring Boot applications with independent MySQL schemas (`profile_db`, `product_db`, `cart_db`, `order_db`, `wallet_db`, `admin_db`).
 - **Discovery & Routing**: Service registration with **Netflix Eureka** (`:8761`) and perimeter routing via **Spring Cloud Gateway** (`:8080`).
 - **Distributed Checkout Saga**: Orchestrated pre-persistence state machine across Cart, Product (stock reservation), Wallet (payment deduction), and Order with automated compensating rollbacks and crash recovery.
 - **Enterprise Security**:
@@ -25,7 +25,7 @@ An enterprise-grade, distributed e-commerce microservices platform built strictl
   - **Refresh Token Rotation (RTR)** with proactive **Replay Attack Detection** (invalidates all sessions if a rotated token is reused).
   - Social authentication via **GitHub OAuth 2.0**.
   - Strict **Anti-CSRF Defense** (`AntiCsrfFilter` requiring `X-Requested-With: XMLHttpRequest` and Origin verification).
-  - Strict **Role-Based Access Control (RBAC)** separating `ROLE_CUSTOMER` and `ROLE_MERCHANT`.
+  - Strict **Role-Based Access Control (RBAC)** separating `ROLE_CUSTOMER`, `ROLE_MERCHANT`, and `ROLE_ADMIN`.
   - **Zero-Trust Customer Isolation (Anti-IDOR)** preventing cross-user data exposure.
 - **Financial Ledger & Concurrency**:
   - Pessimistic write locking (`@Lock(LockModeType.PESSIMISTIC_WRITE)`) in Digital Wallet eliminating double-spend and race conditions.
@@ -47,6 +47,7 @@ An enterprise-grade, distributed e-commerce microservices platform built strictl
 | **Cart Service** | `8083` | `cart_db` | Customer Cart & Live Price Verification | [http://localhost:8083/swagger-ui/index.html](http://localhost:8083/swagger-ui/index.html) |
 | **Order Service** | `8084` | `order_db` | Checkout Saga, History, Snapshots, COD | [http://localhost:8084/swagger-ui/index.html](http://localhost:8084/swagger-ui/index.html) |
 | **Wallet Service** | `8085` | `wallet_db` | Digital Ledger, Deductions, Refunds | [http://localhost:8085/swagger-ui/index.html](http://localhost:8085/swagger-ui/index.html) |
+| **Admin Service** | `8086` | `admin_db` | Platform Governance, Disputes, SLA & Audit Logs | [http://localhost:8086/swagger-ui/index.html](http://localhost:8086/swagger-ui/index.html) |
 | **React Web App** | `5173` | Browser | Customer & Merchant Web Experience | [http://localhost:5173](http://localhost:5173) |
 
 ---
@@ -67,6 +68,7 @@ graph TD
         Cart["Cart Service (8083)"]
         Order["Order Service (8084)"]
         Wallet["Wallet Service (8085)"]
+        Admin["Admin Service (8086)"]
     end
 
     Client -->|HTTP REST / Cookies| Gateway
@@ -75,11 +77,14 @@ graph TD
     Gateway -->|/api/cart/**| Cart
     Gateway -->|/api/orders/**| Order
     Gateway -->|/api/wallet/**| Wallet
+    Gateway -->|/api/admin/**, /api/disputes/**| Admin
 
     Cart -->|RestTemplate| Product
     Order -->|RestTemplate| Cart
     Order -->|RestTemplate| Product
     Order -->|RestTemplate| Wallet
+    Admin -->|RestTemplate| Profile
+    Admin -->|RestTemplate| Order
 ```
 
 ---

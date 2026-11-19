@@ -53,6 +53,13 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse("FORBIDDEN", ex.getMessage()));
     }
 
+    @ExceptionHandler(PaymentGatewayException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentGatewayException(PaymentGatewayException ex) {
+        log.warn("Payment gateway error: [{}] {}", ex.getErrorCode(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(ex.getErrorCode(), ex.getMessage()));
+    }
+
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ErrorResponse> handleIllegalStateException(IllegalStateException ex) {
         log.warn("Illegal state: {}", ex.getMessage());

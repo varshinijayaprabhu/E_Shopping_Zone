@@ -45,6 +45,7 @@ sequenceDiagram
     participant Product as Product Service
     participant Order as Order Service
     participant Wallet as Wallet Service
+    participant AdminSvc as Admin Service
 
     Note over Customer, Gateway: Scenario A: Adding Item to Cart
     Customer->>Gateway: POST /api/cart/items {productId, quantity}
@@ -76,6 +77,19 @@ sequenceDiagram
         Order-->>Gateway: 201 Created (Confirmed Order DTO)
         Gateway-->>Customer: 201 Created
     end
+
+    Note over Customer, Gateway: Scenario C: Administrative Dispute Resolution & Compensating Refund
+    Customer->>Gateway: POST /api/admin/disputes/{id}/resolve {action: "REFUND"}
+    Gateway->>AdminSvc: Forward with X-User-Id, ROLE_ADMIN
+    AdminSvc->>Order: POST http://ORDER-SERVICE/api/orders/internal/{orderId}/refund (with X-Internal-Secret)
+    Order->>Wallet: POST http://WALLET-SERVICE/api/wallet/refund
+    Wallet-->>Order: 200 OK (Refund credited)
+    Order->>Product: POST http://PRODUCT-SERVICE/api/products/release
+    Product-->>Order: 200 OK (Stock restored)
+    Order-->>AdminSvc: 200 OK (Order status marked REFUNDED)
+    AdminSvc->>AdminSvc: Save immutable admin_audit_log & update dispute to REFUNDED_BY_ADMIN
+    AdminSvc-->>Gateway: 200 OK
+    Gateway-->>Customer: 200 OK
 ```
 
 ---
@@ -90,6 +104,7 @@ To ensure end-to-end traceability and security across distributed calls, `RestTe
 | `X-User-Id` | API Gateway | Authenticated user primary key extracted from JWT | `102` |
 | `X-User-Email` | API Gateway | Authenticated user email extracted from JWT | `customer@example.com` |
 | `X-User-Role` | API Gateway | Authenticated user role extracted from JWT | `ROLE_CUSTOMER` |
+| `X-Internal-Secret` | Admin / Order Service | Shared cryptographic token securing internal inter-service endpoints | `ESHOPPING_INTERNAL_SECRET_2026` |
 
 ---
 

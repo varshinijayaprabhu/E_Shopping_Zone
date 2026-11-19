@@ -44,7 +44,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const deposit = async (
     amount: number,
-    fundingSource = 'SIMULATED_UPI',
+    fundingSource = 'RAZORPAY',
     description = 'Wallet Top-up'
   ): Promise<WalletTransaction | null> => {
     try {

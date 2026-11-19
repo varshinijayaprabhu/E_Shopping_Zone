@@ -28,10 +28,24 @@ export const CheckoutPage: React.FC = () => {
   const [shippingName, setShippingName] = useState(user?.fullName || '');
   const [shippingPhone, setShippingPhone] = useState(user?.phone || '');
   const [shippingAddress, setShippingAddress] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'WALLET' | 'CASH_ON_DELIVERY'>('WALLET');
+  const [paymentMethod, setPaymentMethod] = useState<'WALLET' | 'CASH_ON_DELIVERY' | 'RAZORPAY'>('WALLET');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
+
+  const loadRazorpayScript = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if ((window as any).Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
 
   useEffect(() => {
     if (user?.fullName && !shippingName) setShippingName(user.fullName);
@@ -78,6 +92,95 @@ export const CheckoutPage: React.FC = () => {
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
+
+    if (paymentMethod === 'RAZORPAY') {
+      setIsSubmitting(true);
+      try {
+        const loaded = await loadRazorpayScript();
+        if (!loaded) {
+          showError('Failed to load Razorpay payment SDK. Please check your internet connection.');
+          setIsSubmitting(false);
+          return;
+        }
+
+        const idempotencyKey = `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        const intentRes = await orderApi.createRazorpayOrder({
+          shippingName: shippingName.trim(),
+          shippingPhone: shippingPhone.trim(),
+          shippingAddress: shippingAddress.trim(),
+          idempotencyKey,
+        });
+
+        if (!intentRes.success || !intentRes.data) {
+          showError(intentRes.message || 'Failed to initialize payment gateway order');
+          setIsSubmitting(false);
+          return;
+        }
+
+        const intent = intentRes.data;
+
+        // Open Official Razorpay Checkout Modal
+        const options = {
+          key: intent.keyId,
+          amount: intent.amountInPaise,
+          currency: intent.currency || 'INR',
+          name: 'E-ShoppingZone',
+          description: `Order #${intent.orderNumber}`,
+          order_id: intent.razorpayOrderId.startsWith('order_sim_') ? undefined : intent.razorpayOrderId,
+          prefill: {
+            name: shippingName.trim(),
+            email: user?.email || '',
+            contact: shippingPhone.trim(),
+          },
+          theme: {
+            color: '#4f46e5',
+          },
+          modal: {
+            ondismiss: () => {
+              setIsSubmitting(false);
+              showError('Payment process was cancelled by customer');
+            },
+          },
+          handler: async (response: any) => {
+            try {
+              const verifyRes = await orderApi.verifyRazorpayPayment({
+                razorpayOrderId: response.razorpay_order_id || intent.razorpayOrderId,
+                razorpayPaymentId: response.razorpay_payment_id || `pay_sim_${Date.now()}`,
+                razorpaySignature: response.razorpay_signature || 'mock_valid_signature',
+                orderNumber: intent.orderNumber,
+                shippingName: shippingName.trim(),
+                shippingPhone: shippingPhone.trim(),
+                shippingAddress: shippingAddress.trim(),
+                idempotencyKey,
+              });
+
+              if (verifyRes.success && verifyRes.data) {
+                showSuccess(`Payment verified! Order #${verifyRes.data.orderNumber} placed successfully.`);
+                await Promise.all([fetchCart(), fetchWallet()]);
+                navigate(`/orders/${verifyRes.data.id}`);
+              } else {
+                showError(verifyRes.message || 'Payment signature verification failed');
+              }
+            } catch (err: any) {
+              showError(err.response?.data?.message || err.message || 'Payment verification failed');
+            } finally {
+              setIsSubmitting(false);
+            }
+          },
+        };
+
+        const razorpayInstance = new (window as any).Razorpay(options);
+        razorpayInstance.on('payment.failed', (resp: any) => {
+          showError(`Payment failed: ${resp.error?.description || 'Transaction declined'}`);
+          setIsSubmitting(false);
+        });
+        razorpayInstance.open();
+      } catch (err: any) {
+        showError(err.response?.data?.message || err.message || 'Failed to initialize payment');
+        setIsSubmitting(false);
+      }
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -198,7 +301,36 @@ export const CheckoutPage: React.FC = () => {
               2. Payment Method
             </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Razorpay Gateway Option */}
+              <div
+                onClick={() => setPaymentMethod('RAZORPAY')}
+                className={`cursor-pointer p-4 rounded-2xl border-2 transition-all flex flex-col justify-between ${paymentMethod === 'RAZORPAY'
+                    ? 'border-indigo-600 bg-indigo-50/40 shadow-xs'
+                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                  }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="w-5 h-5 text-indigo-600" />
+                      <span className="font-bold text-sm text-slate-900">Razorpay</span>
+                    </div>
+                    {paymentMethod === 'RAZORPAY' && (
+                      <CheckCircle2 className="w-4 h-4 text-indigo-600" />
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500">Cards, Netbanking & Wallets</p>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[11px] text-slate-500">Gateway:</span>
+                  <span className="text-[11px] font-bold text-indigo-600 px-2 py-0.5 rounded-md bg-indigo-50">
+                    Instant & Secure
+                  </span>
+                </div>
+              </div>
+
               {/* E-ShoppingZone Wallet Option */}
               <div
                 onClick={() => setPaymentMethod('WALLET')}
@@ -211,7 +343,7 @@ export const CheckoutPage: React.FC = () => {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <WalletIcon className="w-5 h-5 text-indigo-600" />
-                      <span className="font-bold text-sm text-slate-900">E-Shopping Wallet</span>
+                      <span className="font-bold text-sm text-slate-900">Wallet</span>
                     </div>
                     {paymentMethod === 'WALLET' && (
                       <CheckCircle2 className="w-4 h-4 text-indigo-600" />
@@ -221,7 +353,7 @@ export const CheckoutPage: React.FC = () => {
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[11px] text-slate-500">Current Balance:</span>
+                  <span className="text-[11px] text-slate-500">Balance:</span>
                   <span
                     className={`text-xs font-extrabold ${balance >= cartSubtotal ? 'text-emerald-600' : 'text-rose-600'
                       }`}

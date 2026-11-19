@@ -4,7 +4,7 @@ import { Plus, Edit2, Trash2, Package, CheckCircle2, XCircle } from 'lucide-reac
 import { productApi } from '../../api/productApi';
 import { Product } from '../../types';
 import { formatCurrency } from '../../utils/formatters';
-import { resolveImageUrl } from '../../utils/imageUrl';
+import { resolveImageUrl, getProductFallbackSvg } from '../../utils/imageUrl';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ConfirmationModal } from '../../components/common/ConfirmationModal';
 import { useNotification } from '../../context/NotificationContext';
@@ -125,18 +125,15 @@ export const MerchantProductsPage: React.FC = () => {
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden flex-shrink-0 border border-slate-100">
-                          {resolveImageUrl(p.imageUrl) ? (
-                            <img
-                              src={resolveImageUrl(p.imageUrl)}
-                              alt={p.name}
-                              referrerPolicy="no-referrer"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-300">
-                              <Package className="w-5 h-5" />
-                            </div>
-                          )}
+                          <img
+                            src={resolveImageUrl(p.imageUrl) || getProductFallbackSvg(p.name, p.categoryName)}
+                            alt={p.name}
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = getProductFallbackSvg(p.name, p.categoryName);
+                            }}
+                            className="w-full h-full object-cover"
+                          />
                         </div>
                         <div className="min-w-0">
                           <span className="font-bold text-slate-900 block truncate">{p.name}</span>

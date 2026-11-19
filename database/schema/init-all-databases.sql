@@ -211,3 +211,46 @@ CREATE TABLE IF NOT EXISTS wallet_transactions (
     CONSTRAINT fk_wallet_tx_wallet FOREIGN KEY (wallet_id) REFERENCES wallets(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- -----------------------------------------------------------------------------
+-- 6. ADMIN GOVERNANCE & DISPUTE DATABASE (admin_db)
+-- -----------------------------------------------------------------------------
+CREATE DATABASE IF NOT EXISTS admin_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE admin_db;
+
+CREATE TABLE IF NOT EXISTS admin_audit_logs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    admin_id BIGINT NOT NULL,
+    admin_email VARCHAR(100) DEFAULT 'admin@eshopping.com',
+    action_type VARCHAR(50) NOT NULL,
+    target_entity_type VARCHAR(50) NOT NULL,
+    target_entity_id BIGINT NOT NULL,
+    reason VARCHAR(500) NULL,
+    metadata TEXT NULL,
+    ip_address VARCHAR(45) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_audit_admin (admin_id),
+    INDEX idx_audit_action (action_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS dispute_tickets (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_id BIGINT NOT NULL,
+    customer_id BIGINT NOT NULL,
+    merchant_id BIGINT NOT NULL,
+    issue_reason VARCHAR(255) NOT NULL,
+    customer_comment TEXT NULL,
+    merchant_response TEXT NULL,
+    admin_notes TEXT NULL,
+    refund_amount DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
+    status VARCHAR(40) NOT NULL DEFAULT 'PENDING_MERCHANT',
+    merchant_deadline TIMESTAMP NULL,
+    escalated_at TIMESTAMP NULL,
+    resolved_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_disputes_order (order_id),
+    INDEX idx_disputes_customer (customer_id),
+    INDEX idx_disputes_merchant (merchant_id),
+    INDEX idx_disputes_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+

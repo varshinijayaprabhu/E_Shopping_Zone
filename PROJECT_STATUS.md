@@ -29,10 +29,10 @@
 | ID | Category | Acceptance Criterion | Verification Method | Status |
 | :--- | :--- | :--- | :--- | :---: |
 | **AC-01** | Functional | Original Capgemini PDF requirements fully implemented | Specification Audit across customer & merchant workflows | [x] Verified |
-| **AC-02** | Compatibility | Pure Java 8 bytecode compatibility verified (`major version: 52`) | `javap -v` across all 7 compiled microservice jar artifacts | [x] Verified |
+| **AC-02** | Compatibility | Pure Java 8 bytecode compatibility verified (`major version: 52`) | `javap -v` across all 8 compiled microservice jar artifacts | [x] Verified |
 | **AC-03** | Compatibility | Spring Boot 2.7.18 + Spring Cloud 2021.0.9 baseline verified | Maven reactor dependency tree audit | [x] Verified |
-| **AC-04** | Architecture | All seven backend Spring Boot applications exist independently | Project structure and modular compilation audit | [x] Verified |
-| **AC-05** | Discovery | Netflix Eureka registration works for all services | Eureka Dashboard (`:8761`) verifying 6 registered services | [x] Verified |
+| **AC-04** | Architecture | All eight backend Spring Boot applications exist independently | Project structure and modular compilation audit | [x] Verified |
+| **AC-05** | Discovery | Netflix Eureka registration works for all services | Eureka Dashboard (`:8761`) verifying 7 registered services | [x] Verified |
 | **AC-06** | Gateway | Spring Cloud Gateway routing works as single ingress (`:8080`) | Dynamic route forwarding and reactive CORS validation | [x] Verified |
 | **AC-07** | Identity | Profile registration works with BCrypt password hashing | Customer self-registration & password strength verification | [x] Verified |
 | **AC-08** | Identity | Email/password login returns JWT and sets refresh cookie | Login endpoint returns 15-min JWT and `HttpOnly` cookie | [x] Verified |
@@ -41,7 +41,7 @@
 | **AC-11** | Security | Replay attack detection revokes all user sessions | Replayed token triggers lineage-wide session revocation | [x] Verified |
 | **AC-12** | Security | Logout endpoint clears cookie and revokes refresh token | `POST /api/auth/logout` revokes token and clears cookie | [x] Verified |
 | **AC-13** | Security | GitHub OAuth 2.0 social login works with credentials | One-time exchange code store (`OAuth2ExchangeCodeStore`) | [x] Verified |
-| **AC-14** | Security | Customer (`ROLE_CUSTOMER`) and Merchant (`ROLE_MERCHANT`) roles work | RBAC method security and invite-code guarded onboarding | [x] Verified |
+| **AC-14** | Security | Customer (`ROLE_CUSTOMER`), Merchant (`ROLE_MERCHANT`), and Admin (`ROLE_ADMIN`) roles work | RBAC method security and administrative role governance | [x] Verified |
 | **AC-15** | Catalog | Merchant product management (CRUD, ownership isolation) works | Product Service CRUD and Anti-IDOR ownership validation | [x] Verified |
 | **AC-16** | Catalog | Unauthenticated product search and filtering works | Public dynamic criteria queries (category, price, sort) | [x] Verified |
 | **AC-17** | Shopping Cart | Cart operations (add, update quantity, remove, view totals) work | Cart Service CRUD with live Product Service price check | [x] Verified |
@@ -51,9 +51,9 @@
 | **AC-21** | Orders | Cash on Delivery (COD) order checkout works | COD order creation, payment status `COD_PENDING` | [x] Verified |
 | **AC-22** | Orders | Customer order history and merchant order visibility work | Customer anti-IDOR isolation & Merchant product-scoped items | [x] Verified |
 | **AC-23** | Frontend | React UI communicates exclusively through API Gateway | Single edge ingress (`http://localhost:8080`) configured | [x] Verified |
-| **AC-24** | Documentation | Every microservice exposes Springdoc OpenAPI 1.8.x Swagger UI | Interactive Swagger UI available on ports 8081 - 8085 | [x] Verified |
+| **AC-24** | Documentation | Every microservice exposes Springdoc OpenAPI 1.8.x Swagger UI | Interactive Swagger UI available on ports 8081 - 8086 | [x] Verified |
 | **AC-25** | Documentation | Swagger JWT Bearer authentication works on protected endpoints | OpenAPI Bearer JWT security scheme verified | [x] Verified |
-| **AC-26** | Database | MySQL schemas and tables are correctly partitioned per service | 5 physical schemas (`profile_db`, `product_db`, etc.) | [x] Verified |
+| **AC-26** | Database | MySQL schemas and tables are correctly partitioned per service | 6 physical schemas (`profile_db`, `product_db`, etc.) | [x] Verified |
 | **AC-27** | Database | Database initialization and seed scripts execute cleanly | `scripts/init-databases.sql` executes without error | [x] Verified |
 | **AC-28** | Quality | Meaningful unit tests exist across all services | JUnit 5 test suite passes across all modules | [x] Verified (120/120) |
 | **AC-29** | Quality | Controller & JPA integration tests exist | MockMvc and DataJpaTest suites pass | [x] Verified |

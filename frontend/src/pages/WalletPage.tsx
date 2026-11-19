@@ -7,24 +7,43 @@ import {
   PlusCircle,
   ShieldCheck,
   History,
+  CreditCard,
+  Sparkles,
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { useWallet } from '../context/WalletContext';
+import { useNotification } from '../context/NotificationContext';
 import { walletApi } from '../api/walletApi';
 import { WalletTransaction } from '../types';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 
 export const WalletPage: React.FC = () => {
+  const { user } = useAuth();
   const { wallet, balance, isLoading: walletLoading, deposit } = useWallet();
+  const { showSuccess, showError } = useNotification();
 
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [loadingTxns, setLoadingTxns] = useState(true);
 
   // Top-up form state
   const [depositAmount, setDepositAmount] = useState<string>('1000');
-  const [fundingSource, setFundingSource] = useState<string>('SIMULATED_UPI');
   const [isDepositing, setIsDepositing] = useState(false);
   const [depositError, setDepositError] = useState<string | null>(null);
+
+  const loadRazorpayScript = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if ((window as any).Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
 
   const loadTransactions = useCallback(async () => {
     setLoadingTxns(true);
@@ -59,15 +78,75 @@ export const WalletPage: React.FC = () => {
 
     setIsDepositing(true);
     try {
-      const res = await deposit(amt, fundingSource, `Wallet Top-up via ${fundingSource}`);
-      if (res) {
-        setDepositAmount('1000');
-        await loadTransactions();
+      const loaded = await loadRazorpayScript();
+      if (!loaded) {
+        showError('Failed to load Razorpay payment SDK. Please check your internet connection.');
+        setIsDepositing(false);
+        return;
       }
-    } catch (err: unknown) {
-      const errorResponse = err as { message?: string };
-      setDepositError(errorResponse.message || 'Deposit failed. Please try again.');
-    } finally {
+
+      const intentRes = await walletApi.createRazorpayTopupOrder(amt);
+      if (!intentRes.success || !intentRes.data) {
+        showError(intentRes.message || 'Failed to initialize Razorpay top-up order');
+        setIsDepositing(false);
+        return;
+      }
+
+      const intent = intentRes.data;
+
+      const options = {
+        key: intent.keyId,
+        amount: intent.amountInPaise,
+        currency: intent.currency || 'INR',
+        name: 'E-ShoppingZone Wallet',
+        description: `Wallet Top-Up: ${formatCurrency(amt)}`,
+        order_id: intent.razorpayOrderId.startsWith('order_topup_sim_') ? undefined : intent.razorpayOrderId,
+        prefill: {
+          name: user?.fullName || 'Alice Customer',
+          email: user?.email || '',
+          contact: user?.phone || '9876543210',
+        },
+        theme: {
+          color: '#4f46e5',
+        },
+        modal: {
+          ondismiss: () => {
+            setIsDepositing(false);
+            showError('Payment process was cancelled by customer');
+          },
+        },
+        handler: async (response: any) => {
+          try {
+            const verifyRes = await walletApi.verifyRazorpayTopupPayment({
+              razorpayOrderId: response.razorpay_order_id || intent.razorpayOrderId,
+              razorpayPaymentId: response.razorpay_payment_id || `pay_sim_${Date.now()}`,
+              razorpaySignature: response.razorpay_signature || 'mock_valid_signature',
+              amount: amt,
+            });
+
+            if (verifyRes.success && verifyRes.data) {
+              showSuccess(`${formatCurrency(amt)} successfully credited to wallet via Razorpay!`);
+              setDepositAmount('1000');
+              await Promise.all([deposit(0, 'NOOP', 'refresh'), loadTransactions()]);
+            } else {
+              showError(verifyRes.message || 'Payment signature verification failed');
+            }
+          } catch (err: any) {
+            showError(err.response?.data?.message || err.message || 'Payment verification failed');
+          } finally {
+            setIsDepositing(false);
+          }
+        },
+      };
+
+      const razorpayInstance = new (window as any).Razorpay(options);
+      razorpayInstance.on('payment.failed', (resp: any) => {
+        showError(`Payment failed: ${resp.error?.description || 'Transaction declined'}`);
+        setIsDepositing(false);
+      });
+      razorpayInstance.open();
+    } catch (err: any) {
+      showError(err.response?.data?.message || err.message || 'Failed to initialize payment');
       setIsDepositing(false);
     }
   };
@@ -175,20 +254,23 @@ export const WalletPage: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="fundingSourceSelect" className="block text-xs font-semibold text-slate-700 mb-1">
-                  Funding Source
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Payment Gateway
                 </label>
-                <select
-                  id="fundingSourceSelect"
-                  value={fundingSource}
-                  onChange={(e) => setFundingSource(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-                >
-                  <option value="SIMULATED_UPI">Simulated UPI (Fastest)</option>
-                  <option value="NET_BANKING">Net Banking (HDFC, SBI, ICICI)</option>
-                  <option value="DEBIT_CARD">Debit / Credit Card</option>
-                </select>
+                <div className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 flex items-center justify-between">
+                  <span className="font-semibold text-slate-900">Razorpay Secure Gateway</span>
+                  <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2.5 py-0.5 rounded-md">
+                    Cards, Netbanking & Wallets
+                  </span>
+                </div>
               </div>
+            </div>
+
+            <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl flex items-center gap-2.5 text-xs text-indigo-800">
+              <CreditCard className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+              <span>
+                Clicking top-up will open the official <strong>Razorpay Payment Gateway</strong> dialog to pay via Cards, Netbanking, or Wallets.
+              </span>
             </div>
 
             {depositError && <p className="text-xs text-rose-600 font-medium">{depositError}</p>}
@@ -205,7 +287,9 @@ export const WalletPage: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <span>Top-up {formatCurrency(parseFloat(depositAmount) || 0)}</span>
+                  <span>
+                    Pay & Top-up {formatCurrency(parseFloat(depositAmount) || 0)} via Razorpay
+                  </span>
                   <ArrowUpRight className="w-4 h-4" />
                 </>
               )}

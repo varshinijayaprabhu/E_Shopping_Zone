@@ -14,7 +14,7 @@ import {
 import { productApi } from '../api/productApi';
 import { Product } from '../types';
 import { formatCurrency } from '../utils/formatters';
-import { resolveImageUrl } from '../utils/imageUrl';
+import { resolveImageUrl, getProductFallbackSvg } from '../utils/imageUrl';
 import { useCart } from '../context/CartContext';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 
@@ -135,10 +135,11 @@ export const ProductDetailPage: React.FC = () => {
                 className="w-full h-full object-cover object-center"
               />
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
-                <Package className="w-16 h-16 mb-2" />
-                <span className="text-sm font-medium">No image available</span>
-              </div>
+              <img
+                src={getProductFallbackSvg(product.name, product.categoryName)}
+                alt={product.name}
+                className="w-full h-full object-cover object-center"
+              />
             )}
 
             <div className="absolute top-4 left-4">

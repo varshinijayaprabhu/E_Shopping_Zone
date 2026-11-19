@@ -172,5 +172,37 @@ erDiagram
         string description
         timestamp created_at
     }
+
+    %% Admin Governance & Dispute Domain
+    DISPUTE_TICKETS {
+        bigint id PK
+        bigint order_id "Logical reference to ORDERS.id"
+        bigint customer_id "Logical reference to USERS.id"
+        bigint merchant_id "Logical reference to USERS.id"
+        string issue_reason
+        string customer_comment
+        string merchant_response
+        string admin_notes
+        decimal refund_amount
+        string status "PENDING_MERCHANT | MERCHANT_ACCEPTED | MERCHANT_REJECTED | ESCALATED_TO_ADMIN | REFUNDED_BY_ADMIN | RESOLVED_NO_REFUND"
+        timestamp merchant_deadline "2-min SLA target"
+        timestamp escalated_at
+        timestamp resolved_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    ADMIN_AUDIT_LOGS {
+        bigint id PK
+        bigint admin_id "Logical reference to USERS.id"
+        string admin_email
+        string action_type "MERCHANT_APPROVE | MERCHANT_SUSPEND | DISPUTE_RESOLUTION_OVERRIDE"
+        string target_entity_type "MERCHANT | DISPUTE"
+        bigint target_entity_id
+        string reason
+        string metadata
+        string ip_address
+        timestamp created_at
+    }
 ```
 

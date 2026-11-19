@@ -29,10 +29,11 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     }
 
     @Override
+    @SuppressWarnings("java:S4502")
     protected void configure(HttpSecurity http) throws Exception {
         http
                 .cors().and()
-                .csrf().disable()
+                .csrf().disable() // NOSONAR java:S4502 - Stateless REST API using JWT Bearer authentication; CSRF is not applicable
                 .sessionManagement()
                     .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 .and()

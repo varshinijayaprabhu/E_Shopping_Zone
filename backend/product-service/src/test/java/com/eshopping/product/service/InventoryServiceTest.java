@@ -113,5 +113,39 @@ class InventoryServiceTest {
         assertEquals(23, testInventory.getAvailableStock());
         assertEquals(2, testInventory.getReservedStock());
     }
+
+    @Test
+    @DisplayName("Release inventory: Idempotent second call returns empty items without re-releasing")
+    void testReleaseInventory_Idempotent() {
+        when(inventoryRepository.findByProductIdForUpdate(100L)).thenReturn(Optional.of(testInventory));
+        when(inventoryRepository.save(any(Inventory.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        InventoryReleaseRequestDTO request = new InventoryReleaseRequestDTO(
+                "ORD-IDEMP-RELEASE",
+                Collections.singletonList(new InventoryReleaseRequestDTO.ItemRelease(100L, 2))
+        );
+
+        InventoryReleaseResponseDTO response1 = inventoryService.releaseInventory(request);
+        assertNotNull(response1);
+        assertEquals(1, response1.getReleasedItems().size());
+
+        // Second call with same order number should skip idempotently
+        InventoryReleaseResponseDTO response2 = inventoryService.releaseInventory(request);
+        assertNotNull(response2);
+        assertEquals(0, response2.getReleasedItems().size());
+    }
+
+    @Test
+    @DisplayName("Release inventory: Non-existent product throws ResourceNotFoundException")
+    void testReleaseInventory_ProductNotFound() {
+        when(inventoryRepository.findByProductIdForUpdate(999L)).thenReturn(Optional.empty());
+
+        InventoryReleaseRequestDTO request = new InventoryReleaseRequestDTO(
+                "ORD-TEST-NOTFOUND",
+                Collections.singletonList(new InventoryReleaseRequestDTO.ItemRelease(999L, 2))
+        );
+
+        assertThrows(ResourceNotFoundException.class, () -> inventoryService.releaseInventory(request));
+    }
 }
 

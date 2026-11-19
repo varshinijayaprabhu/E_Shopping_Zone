@@ -332,5 +332,210 @@ public class WalletServiceTest {
         assertEquals("ORD-NON-EXISTENT", result.getOrderReference());
         assertEquals("NOT_FOUND", result.getStatus());
     }
+
+    @Test
+    @DisplayName("getPaymentStatusByOrderReference: Empty or null order reference throws BadRequestException")
+    void testGetPaymentStatus_NullOrEmptyThrowsBadRequest() {
+        assertThrows(BadRequestException.class, () -> walletService.getPaymentStatusByOrderReference(null));
+        assertThrows(BadRequestException.class, () -> walletService.getPaymentStatusByOrderReference("   "));
+    }
+
+    @Test
+    @DisplayName("getWallet: Null customer ID throws BadRequestException")
+    void testGetWallet_NullCustomerIdThrowsBadRequest() {
+        assertThrows(BadRequestException.class, () -> walletService.getWallet(null));
+    }
+
+    @Test
+    @DisplayName("getWallet: Auto-provisions wallet if not found")
+    void testGetWallet_AutoProvisionsWallet() {
+        when(walletRepository.findByCustomerId(999L)).thenReturn(Optional.empty());
+        when(walletRepository.save(any(Wallet.class))).thenAnswer(i -> {
+            Wallet w = i.getArgument(0);
+            w.setId(99L);
+            return w;
+        });
+
+        WalletDTO dto = walletService.getWallet(999L);
+
+        assertNotNull(dto);
+        assertEquals(999L, dto.getCustomerId());
+        verify(walletRepository).save(any(Wallet.class));
+    }
+
+    @Test
+    @DisplayName("getTransactions: Null customer ID throws BadRequestException")
+    void testGetTransactions_NullCustomerId() {
+        assertThrows(BadRequestException.class, () -> walletService.getTransactions(null, PageRequest.of(0, 10)));
+    }
+
+    @Test
+    @DisplayName("getTransactions: Non-existent wallet throws ResourceNotFoundException")
+    void testGetTransactions_WalletNotFound() {
+        when(walletRepository.findByCustomerId(999L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                walletService.getTransactions(999L, PageRequest.of(0, 10))
+        );
+    }
+
+    @Test
+    @DisplayName("deposit: Idempotency conflict with different amount throws BadRequestException")
+    void testDeposit_IdempotencyConflictThrowsBadRequest() {
+        WalletTransaction existing = new WalletTransaction();
+        existing.setAmount(new BigDecimal("100.00"));
+
+        when(transactionRepository.findByIdempotencyKey("KEY-123")).thenReturn(Optional.of(existing));
+
+        DepositRequestDTO request = new DepositRequestDTO(new BigDecimal("200.00"), "KEY-123", "UPI", "deposit");
+
+        assertThrows(BadRequestException.class, () -> walletService.deposit(1L, request));
+    }
+
+    @Test
+    @DisplayName("deposit: Negative or null amount throws BadRequestException")
+    void testDeposit_InvalidAmountThrowsBadRequest() {
+        assertThrows(BadRequestException.class, () ->
+                walletService.deposit(1L, new DepositRequestDTO(BigDecimal.ZERO, "K1", "UPI", "deposit"))
+        );
+        assertThrows(BadRequestException.class, () ->
+                walletService.deposit(null, new DepositRequestDTO(new BigDecimal("10.00"), "K1", "UPI", "deposit"))
+        );
+    }
+
+    @Test
+    @DisplayName("refund: Idempotency conflict throws BadRequestException")
+    void testRefund_IdempotencyConflict() {
+        WalletTransaction existing = new WalletTransaction();
+        existing.setAmount(new BigDecimal("100.00"));
+        existing.setOrderReference("ORD-1");
+
+        when(transactionRepository.findByIdempotencyKey("REF-KEY")).thenReturn(Optional.of(existing));
+
+        RefundRequestDTO request = new RefundRequestDTO(1L, "ORD-2", new BigDecimal("100.00"), "REF-KEY", "reason", null);
+
+        assertThrows(BadRequestException.class, () -> walletService.refund(request));
+    }
+
+    @Test
+    @DisplayName("refund: Amount exceeding original payment throws BadRequestException")
+    void testRefund_ExceedsOriginalPaymentThrowsBadRequest() {
+        WalletTransaction originalPayment = new WalletTransaction();
+        originalPayment.setAmount(new BigDecimal("500.00"));
+
+        when(transactionRepository.findByIdempotencyKey("REF-KEY")).thenReturn(Optional.empty());
+        when(transactionRepository.findByOrderReferenceAndTransactionType("ORD-1", TransactionType.PAYMENT))
+                .thenReturn(Optional.of(originalPayment));
+
+        RefundRequestDTO request = new RefundRequestDTO(1L, "ORD-1", new BigDecimal("600.00"), "REF-KEY", "reason", null);
+
+        assertThrows(BadRequestException.class, () -> walletService.refund(request));
+    }
+
+    @Test
+    @DisplayName("pay: Null request, customerId, or amount throws BadRequestException")
+    void testPay_NullValidationThrowsBadRequest() {
+        assertThrows(BadRequestException.class, () -> walletService.pay(null));
+        assertThrows(BadRequestException.class, () -> walletService.pay(new PaymentRequestDTO(null, "ORD-1", new BigDecimal("100.00"), "K", "desc")));
+        assertThrows(BadRequestException.class, () -> walletService.pay(new PaymentRequestDTO(1L, "ORD-1", null, "K", "desc")));
+    }
+
+    @Test
+    @DisplayName("pay: Non-positive amount throws BadRequestException")
+    void testPay_NonPositiveAmountThrowsBadRequest() {
+        PaymentRequestDTO request = new PaymentRequestDTO(1L, "ORD-1", BigDecimal.ZERO, "K", "desc");
+        assertThrows(BadRequestException.class, () -> walletService.pay(request));
+    }
+
+    @Test
+    @DisplayName("pay: Idempotency conflict with different amount or order throws BadRequestException")
+    void testPay_IdempotencyConflictThrowsBadRequest() {
+        WalletTransaction existing = new WalletTransaction();
+        existing.setAmount(new BigDecimal("100.00"));
+        existing.setOrderReference("ORD-100");
+
+        when(transactionRepository.findByIdempotencyKey("PAY-KEY")).thenReturn(Optional.of(existing));
+
+        PaymentRequestDTO conflictAmount = new PaymentRequestDTO(1L, "ORD-100", new BigDecimal("200.00"), "PAY-KEY", "desc");
+        PaymentRequestDTO conflictOrder = new PaymentRequestDTO(1L, "ORD-200", new BigDecimal("100.00"), "PAY-KEY", "desc");
+
+        assertThrows(BadRequestException.class, () -> walletService.pay(conflictAmount));
+        assertThrows(BadRequestException.class, () -> walletService.pay(conflictOrder));
+    }
+
+    @Test
+    @DisplayName("pay: Inactive wallet status throws IllegalStateException")
+    void testPay_InactiveWalletThrowsIllegalState() {
+        testWallet.setStatus(WalletStatus.FROZEN);
+
+        when(transactionRepository.findByIdempotencyKey("KEY-FROZEN")).thenReturn(Optional.empty());
+        when(walletRepository.findByCustomerIdForUpdate(1L)).thenReturn(Optional.of(testWallet));
+
+        PaymentRequestDTO request = new PaymentRequestDTO(1L, "ORD-1", new BigDecimal("50.00"), "KEY-FROZEN", "desc");
+
+        assertThrows(IllegalStateException.class, () -> walletService.pay(request));
+    }
+
+    @Test
+    @DisplayName("refund: Null or empty reason uses default description format without parenthesis")
+    void testRefund_NullReasonDescription() {
+        RefundRequestDTO request = new RefundRequestDTO(
+                1L, "ORD-NO-REASON", new BigDecimal("50.00"), "IDEMP-REF-NO-REASON", null, null
+        );
+
+        when(transactionRepository.findByIdempotencyKey("IDEMP-REF-NO-REASON")).thenReturn(Optional.empty());
+        when(walletRepository.findByCustomerIdForUpdate(1L)).thenReturn(Optional.of(testWallet));
+        when(walletRepository.save(any(Wallet.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(transactionRepository.save(any(WalletTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        WalletTransactionDTO res = walletService.refund(request);
+
+        assertNotNull(res);
+        assertEquals("Refund for order ORD-NO-REASON", res.getDescription());
+    }
+
+    @Test
+    @DisplayName("refund: Auto-creates wallet if wallet does not exist during refund credit")
+    void testRefund_AutoCreatesWalletWhenNotFound() {
+        RefundRequestDTO request = new RefundRequestDTO(
+                888L, "ORD-NEW-WALLET", new BigDecimal("100.00"), "IDEMP-REF-NEW-W", "Refund return", null
+        );
+
+        when(transactionRepository.findByIdempotencyKey("IDEMP-REF-NEW-W")).thenReturn(Optional.empty());
+        when(walletRepository.findByCustomerIdForUpdate(888L)).thenReturn(Optional.empty());
+        when(walletRepository.save(any(Wallet.class))).thenAnswer(inv -> {
+            Wallet w = inv.getArgument(0);
+            w.setId(88L);
+            return w;
+        });
+        when(transactionRepository.save(any(WalletTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        WalletTransactionDTO res = walletService.refund(request);
+
+        assertNotNull(res);
+        assertEquals(new BigDecimal("100.00"), res.getAmount());
+        verify(walletRepository, atLeastOnce()).save(any(Wallet.class));
+    }
+
+    @Test
+    @DisplayName("refund: Null request or customerId or amount throws BadRequestException")
+    void testRefund_NullValidationThrowsBadRequest() {
+        assertThrows(BadRequestException.class, () -> walletService.refund(null));
+        assertThrows(BadRequestException.class, () -> walletService.refund(new RefundRequestDTO(null, "ORD-1", new BigDecimal("50.00"), "K", "r", null)));
+        assertThrows(BadRequestException.class, () -> walletService.refund(new RefundRequestDTO(1L, "ORD-1", null, "K", "r", null)));
+    }
+
+    @Test
+    @DisplayName("refund: Non-positive refund amount throws BadRequestException")
+    void testRefund_NonPositiveAmountThrowsBadRequest() {
+        RefundRequestDTO req = new RefundRequestDTO(1L, "ORD-1", BigDecimal.ZERO, "K", "r", null);
+        assertThrows(BadRequestException.class, () -> walletService.refund(req));
+    }
+
+    @Test
+    @DisplayName("deposit: Null deposit request throws BadRequestException")
+    void testDeposit_NullRequestThrowsBadRequest() {
+        assertThrows(BadRequestException.class, () -> walletService.deposit(1L, null));
+    }
 }
 

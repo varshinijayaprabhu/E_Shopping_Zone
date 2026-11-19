@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Save, Package, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
+import { ArrowLeft, Save, Package, CheckCircle2, AlertCircle, Sparkles, Upload, Image as ImageIcon } from 'lucide-react';
 import { productApi } from '../../api/productApi';
 import { Category, ProductCreatePayload, ProductUpdatePayload } from '../../types';
 import { useNotification } from '../../context/NotificationContext';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
-import { resolveImageUrl, SAMPLE_PRODUCT_IMAGES } from '../../utils/imageUrl';
+import { resolveImageUrl, SAMPLE_PRODUCT_IMAGES, compressAndConvertToBase64, getProductFallbackSvg } from '../../utils/imageUrl';
 
 export const MerchantProductFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -29,11 +29,35 @@ export const MerchantProductFormPage: React.FC = () => {
   const [previewError, setPreviewError] = useState(false);
   const [description, setDescription] = useState('');
   const [active, setActive] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUrlChange = (val: string) => {
     const resolved = resolveImageUrl(val);
     setImageUrl(resolved);
     setPreviewError(false);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const base64 = await compressAndConvertToBase64(file);
+      setImageUrl(base64);
+      setPreviewError(false);
+      showSuccess(`Image "${file.name}" loaded successfully`);
+    } catch (err: unknown) {
+      showError((err as Error).message || 'Failed to process image file');
+    }
+  };
+
+  const handleApplySvgGraphic = () => {
+    const catName = isCustomCategory
+      ? customCategoryName
+      : categories.find((c) => c.id === categoryId)?.name;
+    const svgData = getProductFallbackSvg(name, catName);
+    setImageUrl(svgData);
+    setPreviewError(false);
+    showSuccess('Applied offline vector artwork');
   };
 
   useEffect(() => {
@@ -330,14 +354,50 @@ export const MerchantProductFormPage: React.FC = () => {
             />
           </div>
 
-          <div className="sm:col-span-2 space-y-2">
-            <div className="flex items-center justify-between">
+          <div className="sm:col-span-2 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <label htmlFor="productImageUrlInput" className="block text-xs font-semibold text-slate-700">
-                Image URL
+                Product Image & Visuals
               </label>
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl transition-colors border border-indigo-200"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Upload Image File</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApplySvgGraphic}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl transition-colors border border-slate-200"
+                >
+                  <ImageIcon className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>Use Offline Artwork</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <input
+                id="productImageUrlInput"
+                type="text"
+                value={imageUrl}
+                onChange={(e) => handleImageUrlChange(e.target.value)}
+                placeholder="Paste web image URL (Unsplash, CDN) or upload a file above..."
+                className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
                 <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                <span>Quick samples:</span>
+                <span>Presets:</span>
                 {SAMPLE_PRODUCT_IMAGES.map((sample) => (
                   <button
                     key={sample.name}
@@ -351,23 +411,10 @@ export const MerchantProductFormPage: React.FC = () => {
               </div>
             </div>
 
-            <input
-              id="productImageUrlInput"
-              type="text"
-              value={imageUrl}
-              onChange={(e) => handleImageUrlChange(e.target.value)}
-              placeholder="https://images.unsplash.com/photo-..."
-              className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-
-            <p className="text-[11px] text-slate-500">
-              Provide a direct image URL (Unsplash, CDN, or web image). Can be left blank for default placeholder.
-            </p>
-
             {/* Live Image Preview */}
             {imageUrl.trim() && (
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-3.5">
-                <div className="w-16 h-16 rounded-lg bg-white border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-2xs">
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-4">
+                <div className="w-18 h-18 rounded-xl bg-white border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-2xs">
                   {!previewError ? (
                     <img
                       src={imageUrl.trim()}
@@ -377,25 +424,42 @@ export const MerchantProductFormPage: React.FC = () => {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <Package className="w-7 h-7 text-slate-300" />
+                    <Package className="w-8 h-8 text-slate-300" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   {!previewError ? (
-                    <p className="text-xs font-semibold text-emerald-600 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4" /> Live Image Preview Loaded
-                    </p>
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-emerald-600 flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4" /> Image Preview Active
+                      </p>
+                      <p className="text-[11px] text-slate-500 truncate">
+                        {imageUrl.startsWith('data:image/')
+                          ? 'Local embedded image (100% offline & portable)'
+                          : imageUrl}
+                      </p>
+                    </div>
                   ) : (
                     <div className="space-y-1">
                       <p className="text-xs font-semibold text-rose-600 flex items-center gap-1.5">
-                        <AlertCircle className="w-4 h-4" /> Image cannot be displayed
+                        <AlertCircle className="w-4 h-4" /> Image failed to load
                       </p>
                       <p className="text-[11px] text-slate-500 leading-relaxed">
-                        Tip: If finding pictures on Google or Bing, right-click the image and choose <strong>"Copy image address"</strong> (not the browser page URL), or click one of the quick samples above.
+                        Tip: Click <strong>"Upload Image File"</strong> to pick a photo from your computer, or click <strong>"Use Offline Artwork"</strong> for an instant category vector visual.
                       </p>
                     </div>
                   )}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImageUrl('');
+                    setPreviewError(false);
+                  }}
+                  className="text-xs text-slate-400 hover:text-rose-500 px-2 py-1 transition-colors"
+                >
+                  Clear
+                </button>
               </div>
             )}
           </div>

@@ -199,5 +199,80 @@ class ProductControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.orderNumber").value("ORD-999"))
                 .andExpect(jsonPath("$.data.releasedItems[0].availableStock").value(50));
     }
+
+    @Test
+    @DisplayName("GET /api/products/merchant: Merchant fetches own products")
+    void testGetMerchantProducts_Success() throws Exception {
+        String merchantJwt = jwtTokenProvider.generateTokenForTest(10L, "merchant@example.com", Collections.singleton("ROLE_MERCHANT"));
+
+        ProductResponseDTO productDTO = new ProductResponseDTO(
+                1L, 10L, 1L, "Electronics", "Wireless Headphones", "ELEC-HP-001",
+                "Noise cancelling", new BigDecimal("9999.00"), "http://img.com/1.png", 50, 0, true
+        );
+        ApiResponse<java.util.List<ProductResponseDTO>> apiResponse = ApiResponse.ok(
+                "Merchant products retrieved successfully",
+                Collections.singletonList(productDTO),
+                new PaginationMeta(0, 10, 1L, 1, true, true)
+        );
+
+        when(productService.getMerchantProducts(eq(10L), any())).thenReturn(apiResponse);
+
+        mockMvc.perform(get("/api/products/merchant")
+                        .header("Authorization", "Bearer " + merchantJwt))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").value(1));
+    }
+
+    @Test
+    @DisplayName("PUT /api/products/{id}: Merchant updates own product")
+    void testUpdateProduct_Success() throws Exception {
+        String merchantJwt = jwtTokenProvider.generateTokenForTest(10L, "merchant@example.com", Collections.singleton("ROLE_MERCHANT"));
+
+        ProductUpdateRequestDTO request = new ProductUpdateRequestDTO(
+                "Updated Headphones", 1L, "Updated desc", new BigDecimal("8999.00"), null, 40, true
+        );
+
+        ProductResponseDTO updated = new ProductResponseDTO(
+                1L, 10L, 1L, "Electronics", "Updated Headphones", "ELEC-HP-001",
+                "Updated desc", new BigDecimal("8999.00"), null, 40, 0, true
+        );
+
+        when(productService.updateProduct(eq(1L), any(), eq(10L))).thenReturn(updated);
+
+        mockMvc.perform(put("/api/products/1")
+                        .header("Authorization", "Bearer " + merchantJwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("Updated Headphones"))
+                .andExpect(jsonPath("$.data.price").value(8999.00));
+    }
+
+    @Test
+    @DisplayName("DELETE /api/products/{id}: Merchant deletes own product")
+    void testDeleteProduct_Success() throws Exception {
+        String merchantJwt = jwtTokenProvider.generateTokenForTest(10L, "merchant@example.com", Collections.singleton("ROLE_MERCHANT"));
+
+        mockMvc.perform(delete("/api/products/1")
+                        .header("Authorization", "Bearer " + merchantJwt))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Product deleted successfully"));
+    }
+
+    @Test
+    @DisplayName("GET /api/products/{id}/snapshot: Internal service reads product snapshot")
+    void testGetProductSnapshot_Success() throws Exception {
+        ProductResponseDTO snapshot = new ProductResponseDTO(
+                1L, 10L, 1L, "Electronics", "Historic Snapshot", "ELEC-HP-001",
+                "Desc", new BigDecimal("5000.00"), null, 0, 0, false
+        );
+
+        when(productService.getProductSnapshot(1L)).thenReturn(snapshot);
+
+        mockMvc.perform(get("/api/products/1/snapshot")
+                        .header("X-Internal-Secret", "ESHOPPING_INTERNAL_SECRET_2026"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("Historic Snapshot"));
+    }
 }
 

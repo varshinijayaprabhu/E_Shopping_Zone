@@ -102,5 +102,35 @@ class CategoryServiceTest {
         assertThrows(DuplicateResourceException.class, () -> categoryService.createCategory(request));
         verify(categoryRepository, never()).save(any());
     }
+
+    @Test
+    @DisplayName("Create category with existing slug throws DuplicateResourceException")
+    void testCreateCategory_DuplicateSlug() {
+        CategoryCreateRequestDTO request = new CategoryCreateRequestDTO("New Name", "electronics", null, null);
+        when(categoryRepository.existsByName("New Name")).thenReturn(false);
+        when(categoryRepository.existsBySlug("electronics")).thenReturn(true);
+
+        assertThrows(DuplicateResourceException.class, () -> categoryService.createCategory(request));
+        verify(categoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Get category by slug when found returns DTO")
+    void testGetCategoryBySlug_Found() {
+        when(categoryRepository.findBySlug("electronics")).thenReturn(Optional.of(testCategory));
+
+        CategoryDTO dto = categoryService.getCategoryBySlug("electronics");
+
+        assertNotNull(dto);
+        assertEquals("electronics", dto.getSlug());
+    }
+
+    @Test
+    @DisplayName("Get category by slug when not found throws ResourceNotFoundException")
+    void testGetCategoryBySlug_NotFound() {
+        when(categoryRepository.findBySlug("unknown")).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> categoryService.getCategoryBySlug("unknown"));
+    }
 }
 

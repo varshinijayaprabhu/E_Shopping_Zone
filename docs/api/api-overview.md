@@ -13,6 +13,8 @@ All external clients (React SPA, mobile apps, third-party consumers, Postman) co
 | `/api/cart/**` | Cart Service | `CART-SERVICE` | Protected (`ROLE_CUSTOMER`) |
 | `/api/orders/**` | Order Service | `ORDER-SERVICE` | Protected (`ROLE_CUSTOMER` for checkout/history, `ROLE_MERCHANT` for orders) |
 | `/api/wallet/**` | Wallet Service | `WALLET-SERVICE` | Protected (`ROLE_CUSTOMER`) |
+| `/api/admin/**` | Admin Service | `ADMIN-SERVICE` | Protected (`ROLE_ADMIN`) |
+| `/api/disputes/**` | Admin Service | `ADMIN-SERVICE` | Protected (`ROLE_CUSTOMER`, `ROLE_MERCHANT`, `ROLE_ADMIN`) |
 
 ---
 

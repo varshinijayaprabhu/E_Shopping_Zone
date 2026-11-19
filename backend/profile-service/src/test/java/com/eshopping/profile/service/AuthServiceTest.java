@@ -217,5 +217,120 @@ class AuthServiceTest {
                 authService.exchangeOAuth2Code(request, new MockHttpServletResponse())
         );
     }
+
+    @Test
+    @DisplayName("OAuth2 Code Exchange: Null or empty code throws InvalidTokenException")
+    void testExchangeOAuth2Code_MissingCode() {
+        assertThrows(com.eshopping.profile.exception.InvalidTokenException.class, () ->
+                authService.exchangeOAuth2Code(null, new MockHttpServletResponse())
+        );
+        assertThrows(com.eshopping.profile.exception.InvalidTokenException.class, () ->
+                authService.exchangeOAuth2Code(new OAuth2ExchangeRequestDTO(""), new MockHttpServletResponse())
+        );
+    }
+
+    @Test
+    @DisplayName("Login: User not found throws InvalidCredentialsException")
+    void testLogin_UserNotFound() {
+        when(userRepository.findByEmail("unknown@eshopping.com")).thenReturn(Optional.empty());
+
+        LoginRequestDTO request = new LoginRequestDTO("unknown@eshopping.com", "Password@123");
+
+        assertThrows(InvalidCredentialsException.class, () ->
+                authService.login(request, "127.0.0.1", "Mozilla", new MockHttpServletResponse())
+        );
+    }
+
+    @Test
+    @DisplayName("Login: Account disabled throws InvalidCredentialsException")
+    void testLogin_AccountDisabled() {
+        User user = new User();
+        user.setEmail("disabled@eshopping.com");
+        user.setPasswordHash("hashed_pass");
+        user.setEnabled(false);
+
+        when(userRepository.findByEmail("disabled@eshopping.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("Password@123", "hashed_pass")).thenReturn(true);
+
+        LoginRequestDTO request = new LoginRequestDTO("disabled@eshopping.com", "Password@123");
+
+        assertThrows(InvalidCredentialsException.class, () ->
+                authService.login(request, "127.0.0.1", "Mozilla", new MockHttpServletResponse())
+        );
+    }
+
+    @Test
+    @DisplayName("Merchant registration: Without invite code provisions disabled account pending approval")
+    void testRegisterMerchant_NoInviteCode_PendingApproval() {
+        MerchantRegisterRequestDTO request = new MerchantRegisterRequestDTO(
+                "pending@eshopping.com", "Password@123", "Pending Merchant", "+91-9876543212", null
+        );
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(userRepository.existsByEmail("pending@eshopping.com")).thenReturn(false);
+        when(passwordEncoder.encode("Password@123")).thenReturn("hashed_password");
+        when(userRepository.save(any(User.class))).thenAnswer(i -> {
+            User u = i.getArgument(0);
+            u.setId(25L);
+            return u;
+        });
+
+        AuthResponseDTO result = authService.registerMerchant(request, "127.0.0.1", "Mozilla", response);
+
+        assertNotNull(result);
+        assertNull(result.getAccessToken());
+        assertEquals("pending@eshopping.com", result.getUser().getEmail());
+    }
+
+    @Test
+    @DisplayName("Refresh token: Successfully rotates token and issues new access token")
+    void testRefreshToken_Success() {
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("alice@eshopping.com");
+        user.setFullName("Alice Customer");
+        user.setRoles(Collections.singleton("ROLE_CUSTOMER"));
+
+        RefreshTokenService.TokenRotationResult rotationResult =
+                new RefreshTokenService.TokenRotationResult("new_raw_refresh_token", user);
+
+        when(refreshTokenService.rotateRefreshToken(eq("old_raw_token"), anyString(), anyString()))
+                .thenReturn(rotationResult);
+        when(jwtTokenProvider.generateAccessToken(eq(1L), eq("alice@eshopping.com"), eq("Alice Customer"), any()))
+                .thenReturn("new_access_jwt");
+        when(jwtTokenProvider.getExpirationMs()).thenReturn(900000L);
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        RefreshTokenResponseDTO result = authService.refreshToken("old_raw_token", "127.0.0.1", "Mozilla", response);
+
+        assertNotNull(result);
+        assertEquals("new_access_jwt", result.getAccessToken());
+        assertNotNull(response.getHeader("Set-Cookie"));
+    }
+
+    @Test
+    @DisplayName("Logout: Revokes refresh token and clears cookie")
+    void testLogout_Success() {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        authService.logout("raw_token_to_revoke", response);
+
+        verify(refreshTokenService).revokeRefreshToken("raw_token_to_revoke");
+        assertNotNull(response.getHeader("Set-Cookie"));
+    }
+
+    @Test
+    @DisplayName("LogoutAll: Revokes all tokens for user and clears cookie")
+    void testLogoutAll_Success() {
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("alice@eshopping.com");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        authService.logoutAll(user, response);
+
+        verify(refreshTokenService).revokeAllUserTokens(user);
+        assertNotNull(response.getHeader("Set-Cookie"));
+    }
 }
 

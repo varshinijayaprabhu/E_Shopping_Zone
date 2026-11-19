@@ -23,5 +23,27 @@ export const walletApi = {
     const res = await axiosClient.post<ApiResponse<WalletTransaction>>('/api/wallet/deposit', payload);
     return res.data;
   },
+
+  createRazorpayTopupOrder: async (amount: number): Promise<ApiResponse<{
+    razorpayOrderId: string;
+    receipt: string;
+    amount: number;
+    amountInPaise: number;
+    currency: string;
+    keyId: string;
+  }>> => {
+    const res = await axiosClient.post('/api/wallet/payment/razorpay/create-order', { amount });
+    return res.data;
+  },
+
+  verifyRazorpayTopupPayment: async (payload: {
+    razorpayPaymentId: string;
+    razorpayOrderId: string;
+    razorpaySignature: string;
+    amount: number;
+  }): Promise<ApiResponse<WalletTransaction>> => {
+    const res = await axiosClient.post('/api/wallet/payment/razorpay/verify', payload);
+    return res.data;
+  },
 };
 
